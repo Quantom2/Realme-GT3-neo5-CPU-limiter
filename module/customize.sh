@@ -119,7 +119,7 @@ else
  set_default
 fi
 
-rm -rf /data/adb/modules/QuantomMod3
+rm -rf "${MODPATH/_update/}"
 
 
 if [ "$FREQ_EXPORT" != 1 ]; then
