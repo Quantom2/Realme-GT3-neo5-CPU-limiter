@@ -50,26 +50,59 @@ show_menu() {
     return $selected
 }
 
-set_default() {
- PRIMEf="2995200"
- PRIMEc="Stock freq           (3.0Gh)"
- BIGf="2496000"
- BIGc="Stock freq           (2.5Gh)"
- LITTLEf="1804800"
- LITTLEc="Stock freq           (1.8Gh)"
- uALGf="0"
- dALGf="0"
- ALGc="Stock algorithm"
- pCOREf="0"
- bCOREf="0"
- COREc="Not disable"
- CPU_pCOREd=" "
- CPU_bCOREd=" "
- CPU_ALG=" "
- FREQ_EXPORT="0"
- OTHER_EXPORT="0"
-  echo "Default set successfully
+compatible_freq() {
+ local FREQ=$(cat /sys/devices/system/cpu/cpu${2}/cpufreq/scaling_available_frequencies)
+ local MIN=$(echo "$FREQ" | awk '{print $1}')
+ local MAX=$(echo "$FREQ" | awk '{print $NF}')
+
+ echo "Compatible freq gained for ${1}, featuring:
+Min:$MIN and Max:$MAX
 " >> /sdcard/Quantom.log
+
+ eval ${1}f=\"$MAX\"
+ eval ${1}min=\"$MIN\"
+}
+
+set_default() {
+ if [ "$1" != "0" ]; then
+  if [ "$COMPATIBLE" = "1" ]; then
+   PRIMEf="2995200"
+   PRIMEc="Stock freq           (3.0Gh)"
+   BIGf="2496000"
+   BIGc="Stock freq           (2.5Gh)"
+   LITTLEf="1804800"
+   LITTLEc="Stock freq           (1.8Gh)"
+   echo "Default (GT3/neo5) freq set successfully
+" >> /sdcard/Quantom.log
+   FREQ_EXPORT="0"
+  else
+   compatible_freq PRIME 7
+   PRIMEc="[NONE] (Compatibility mode)"
+   compatible_freq BIG 4
+   BIGc="[NONE] (Compatibility mode)"
+   compatible_freq LITTLE 0
+   LITTLEc="[NONE] (Compatibility mode)"
+   echo "Default (Compatible mode) freq set successfully
+" >> /sdcard/Quantom.log
+   FREQ_EXPORT="1"
+  fi
+ fi
+ 
+ if [ "$2" != "0" ]; then
+  uALGf="0"
+  dALGf="0"
+  ALGc="Stock algorithm"
+  pCOREf="0"
+  bCOREf="0"
+  COREc="Not disable"
+  CPU_pCOREd=" "
+  CPU_bCOREd=" "
+  CPU_ALG=" "
+  echo "Default not freq set successfully
+" >> /sdcard/Quantom.log
+  OTHER_EXPORT="0"
+ fi
+
 }
 
 restore_settings() {
@@ -81,24 +114,26 @@ if [ "$1" = 0 ]; then
 
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc
  FREQ_EXPORT="1"
- OTHER_EXPORT="0"
-
+ set_default 0 1
 echo "Settings restored (freq)
 " >> /sdcard/Quantom.log
+ check_restore
 
- if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ]; then
-  ui_print " "
-  ui_print " There is a problem with restoring, aborting "
-  ui_print "___________________________________________________"
-  set_default
-   echo "Restore fail (freq), aborting
-" >> /sdcard/Quantom.log
-  sleep 2
- fi
-
-elif [ "$1" = 1 ]; then
+elif [ "$1" = "1" ]; then
  ui_print " "
- ui_print " Restoring all your previous settings...    "
+ ui_print " Restoring your previous NOT freq settings...    "
+ ui_print "___________________________________________________"
+
+ export uALGf dALGf ALGc pCOREf bCOREf COREc
+ OTHER_EXPORT="1"
+ set_default 1 0
+echo "Settings restored (NOT freq)
+" >> /sdcard/Quantom.log
+ check_restore
+
+ elif [ "$1" = "2" ]; then
+ ui_print " "
+ ui_print " Restoring all your previous settings... "
  ui_print "___________________________________________________"
 
 echo "Settings restored (all)
@@ -107,26 +142,108 @@ echo "Settings restored (all)
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc uALGf dALGf ALGc pCOREf bCOREf COREc
  FREQ_EXPORT="1"
  OTHER_EXPORT="1"
+echo "Settings restored (all)
+" >> /sdcard/Quantom.log
+ check_restore
 
- if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ] || [ -z "$uALGf" ] || [ -z "$dALGf" ] || [ -z "$ALGc" ] || [ -z "$pCOREf" ] || [ -z "$bCOREf" ] || [ -z "$COREc" ]; then
-  ui_print " "
-  ui_print " There is a problem with restoring, aborting "
-  ui_print "___________________________________________________"
-  set_default
+fi
+}
+
+check_restore() {
+ if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ]; then
+ FREQfail="1"
+ fi
+
+ if [ -z "$uALGf" ] || [ -z "$dALGf" ] || [ -z "$ALGc" ] || [ -z "$pCOREf" ] || [ -z "$bCOREf" ] || [ -z "$COREc" ]; then
+ ELSEfail="1"
+ fi
+
+if [ "$FREQfail" = "1" ] || [ "ELSEfail" = "1" ]; then
+ ui_print " "
+ ui_print " There is a problem with restoring ALL, aborting "
+ ui_print "___________________________________________________"
    echo "Restore fail (all), aborting
 " >> /sdcard/Quantom.log
-  sleep 2
- fi
+ set_default 1 1
+ sleep 2
+
+elif [ "$FREQfail" = "1" ]; then
+ ui_print " "
+ ui_print " There is a problem with restoring FREQ, aborting it"
+ ui_print "___________________________________________________"
+   echo "Restore fail (freq), aborting
+" >> /sdcard/Quantom.log
+ set_default 1 0
+ sleep 2
+
+elif [ "ELSEfail" = "1" ]; then
+ ui_print " "
+ ui_print " There is a problem with restoring NOT freq, aborting it"
+ ui_print "___________________________________________________"
+   echo "Restore fail (NOT freq), aborting
+" >> /sdcard/Quantom.log
+ set_default 0 1
+ sleep 2
+
+elif [ "$FREQfail" != "1" ] || [ "ELSEfail" != "1" ]; then
+   echo "Restore sucsessfull!
+" >> /sdcard/Quantom.log
+else
+ ui_print " There is unexpected error, send log please, aborting"
+  echo "Unexpected error, aborting
+" >> /sdcard/Quantom.log
+  echo "Settings: \"$(cat "${MODPATH/_update/}/settings.txt") \" " >> /sdcard/Quantom.log
+ abort
 fi
 }
 
 echo "Functions defined, all OK
 " >> /sdcard/Quantom.log
 
-if [ -f "${MODPATH/_update/}/settings.txt" ]; then
+MODEL=$(getprop ro.boot.prjname)
+case "$MODEL" in
+  22624|22625|226B2)
+    COMPATIBLE="1"
+     echo "Realme GT3/neo5 detected!
+" >> /sdcard/Quantom.log
+    ;;
+  *)
+    COMPATIBLE="0"
+     echo "UNcompatible device detected!
+" >> /sdcard/Quantom.log
+    ;;
+esac
+
+
+if [ "$COMPATIBLE" = "0" ]; then
+
+      ui_print "___________________________________________________"
       ui_print " "
+      ui_print " Uncompatible device (not Realme GT3/neo5) detected!    "
+      ui_print " CPU freq unavabilive, but you still can change Governor    "
+      ui_print "___________________________________________________"
+      ui_print " "
+
+elif [ "$COMPATIBLE" = "1" ]; then
+
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print " Realme GT3/neo5 detected!    "
+      ui_print " All settings fully avalible  "
+      ui_print "___________________________________________________"
+      ui_print " "
+
+else
+ ui_print " There is unexpected error, send log please, aborting"
+  echo "Unexpected error while check compatible: $COMPATIBLE , aborting
+" >> /sdcard/Quantom.log
+ abort
+fi
+
+if [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "1" ]; then
+
       ui_print " Previous install detected!    "
-      ui_print " Choose to restore configuration or setup again    "
+      ui_print " Choose to restore configuration or setup all again    "
       ui_print "___________________________________________________"
       ui_print " "
       ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
@@ -134,21 +251,43 @@ if [ -f "${MODPATH/_update/}/settings.txt" ]; then
       ui_print " "
       ui_print "   1. Restore all settings       "
       ui_print "   2. Restore only freq settings "
-      ui_print "   3. Setup all from scratch     "
+      ui_print "   3. Restore only not freq settings "
+      ui_print "   4. Setup all from scratch     "
       ui_print " "
-   show_menu "Restore all settings" "Restore only freq settings" "Setup all from scratch"
+   show_menu "Restore all settings" "Restore only freq settings" "Restore only not freq settings" "Setup all from scratch"
+    case $? in
+    1) restore_settings 2 ;;
+    2) restore_settings 1 ;;
+    3) restore_settings 0 ;;
+    4) set_default 1 1 ;;
+    esac
+elif [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "0" ]; then
+
+      ui_print " "
+      ui_print " Previous install detected!    "
+      ui_print " Choose to restore configuration or setup all again    "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print "   1. Restore only compatible settings "
+      ui_print "   2. Setup all from scratch     "
+      ui_print " "
+   show_menu "Restore only compatible settings" "Setup all from scratch"
     case $? in
     1) restore_settings 1 ;;
-    2) restore_settings 0 ;;
-    3) set_default ;;
+    2) set_default 1 1 ;;
     esac
+
 else
 
       ui_print " "
       ui_print " No any previous install detected!    "
       ui_print " Setting all up from scratch:    "
       ui_print "___________________________________________________"
- set_default
+ set_default 1 1
+
 fi
 
 rm -rf "${MODPATH/_update/}"
@@ -226,7 +365,9 @@ ui_print "___________________________________________________"
     4) LITTLEf="1228800" LITTLEc="Huge cut to freq     (1.2Gh)" ;;
     5) LITTLEf="1056000" LITTLEc="Maximum cut to freq  (1.0Gh)" ;;
     esac
-
+else
+ echo "FREQ setup skipped due to FREQ_EXPORT = $FREQ_EXPORT . COMPATIBLE = $COMPATIBLE
+" >> /sdcard/Quantom.log
 fi
 
 if [ "$OTHER_EXPORT" != 1 ]; then
@@ -293,6 +434,9 @@ ui_print "___________________________________________________"
     8) pCOREf="1" bCOREf="3" COREc="Disable PRIME and 3 BIG cores" ;;
     esac
 
+else
+ echo "Else setup skipped due to OTHER_EXPORT = $OTHER_EXPORT . COMPATIBLE = $COMPATIBLE
+" >> /sdcard/Quantom.log
 fi
 
 #finales
@@ -444,7 +588,7 @@ fi
 echo "Algorithm set, contain: \"$CPU_ALG\"
 " >> /sdcard/Quantom.log
 
-
+if [ "$COMPATIBLE" = "1" ]; then
 CPU_COREf="
 echo $LITTLEmin > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
 echo $LITTLEf > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
@@ -493,5 +637,70 @@ echo "Post finalized. Contain: \"$POST\"
 " >> /sdcard/Quantom.log
 
 echo "$POST" > $MODPATH/post-fs-data.sh
+
+elif [ "$COMPATIBLE" = "0" ]; then
+
+CPU_COREf="
+echo $LITTLEmin > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq
+echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq
+
+sleep 5
+"
+
+echo "CPU freq reimp set, contain: \"$CPU_COREf\"
+" >> /sdcard/Quantom.log
+
+CPU="logcat -v brief | grep -m 1 'android.intent.action.USER_PRESENT'
+
+sleep 90
+$CPU_COREf $CPU_ALG $CPU_COREd"
+
+echo "Service finalized. Contain: \"
+$CPU\"
+" >> /sdcard/Quantom.log
+echo "$CPU" > $MODPATH/service.sh
+
+
+POST="
+lock_val() {
+    [ ! -f "$2" ] && return
+    umount "$2"
+
+    chmod +w "$2"
+    echo "$1" | tee -a /dev/mount_mask "$2"
+    mount --bind /dev/mount_mask "$2"
+    rm /dev/mount_mask
+}
+
+lock_val $LITTLEmin /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq
+lock_val $BIGmin /sys/devices/system/cpu/cpu4/cpufreq/scaling_min_freq
+lock_val $PRIMEmin /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq
+"
+
+echo "Post finalized. Contain: \"$POST\"
+" >> /sdcard/Quantom.log
+
+echo "$POST" > $MODPATH/post-fs-data.sh
+
+else
+
+  ui_print " There is unexpected error, send log please, aborting"
+  echo "Unexpected error while check compatible: $COMPATIBLE , aborting
+" >> /sdcard/Quantom.log
+ abort
+
+fi
+
+
+ if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ] || [ -z "$uALGf" ] || [ -z "$dALGf" ] || [ -z "$ALGc" ] || [ -z "$pCOREf" ] || [ -z "$bCOREf" ] || [ -z "$COREc" ]; then
+
+  ui_print " There is unexpected error, send log please, aborting"
+  echo "Unexpected error while check compatible: $COMPATIBLE , aborting
+" >> /sdcard/Quantom.log
+ rm -rf $MODPATH
+ abort
+
+ fi
 
 echo "Done" >> /sdcard/Quantom.log
