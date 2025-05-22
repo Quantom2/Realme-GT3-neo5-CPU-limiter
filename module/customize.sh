@@ -2,66 +2,39 @@
 
 ############### CUSTOM FUNCTIONS ################
 
-START_ENV="$TMPDIR/env.txt"
-NOW_ENV="$TMPDIR/now.txt"
 LOGFILE="/sdcard/Quantom.log"
+NUM_LOG=1
 
-echo "Start installing, definig functions" > "$LOGFILE"
-
-set | sort > "$START_ENV"
+echo "Start installing, definig functions, logfile clear" > "$LOGFILE"
 
 log() {
-  local ABORT=0
-  local TIME=0
-  local TIME_PLUS=0
-  local SAVE=0
-  local UIP=0
-  local MSG=""
-  local DETINFO=""
-  local LOGLINE=""
-
   while [ $# -gt 0 ]; do
     case "$1" in
-      -a) ABORT=1 ;;
-      -s) SAVE=1 ;;
-      -u) UIP=1 ;;
-      -t) local LOGTIME=""
-          LOGTIME=$(date "+%H:%M:%S")
-          LOGLINE="[$LOGTIME] "
-       ;;
-      -T) local LOGTIME=""
-          LOGTIME=$(date "+%Y-%m-%d %H:%M:%S")
-          LOGLINE="[$LOGTIME] "
-       ;;
+      -a) local ABORT=1 ;;
+      -u) local UIP=1 ;;
       --) shift; break ;;
       -*) echo "Unknown flag: $1 , ignoring" >> $LOGFILE ;;
       *) 
         if [ -z "$MSG" ]; then
-          MSG="$1"
+          local MSG="$1"
         elif [ -z "$DETINFO" ]; then
-          DETINFO="$1"
+          local DETINFO="$1"
         fi ;;
     esac
     shift
   done
 
   if [ -n "$DETINFO" ]; then
-    LOGLINE="${LOGLINE}> UI: ${MSG}
+    local LOGLINE=" > UI: ${MSG}
  > Details: ${DETINFO}
 "
   else
-    LOGLINE="${LOGLINE}> UI: ${MSG}
+    local LOGLINE=" > UI: ${MSG}
 "
   fi
 
-  echo "$LOGLINE" >> "$LOGFILE"
-
-  if [ "$SAVE" = "1" ]; then
-    set | sort > "$NOW_ENV"
-    echo "--- ENV DUMP START ---" >> "$LOGFILE"
-    comm -13 "$START_ENV" "$NOW_ENV" >> "$LOGFILE"
-    echo "--- ENV DUMP END ---" >> "$LOGFILE"
-  fi
+  echo "| [№ $NUM_LOG] || [TIME: $(date "+%H:%M:%S")] |
+$LOGLINE" >> "$LOGFILE"
 
   if [ "$UIP" = "1" ]; then
     ui_print "$MSG"
@@ -71,18 +44,67 @@ log() {
     sleep 2
     abort "$MSG"
   fi
+  
+  NUM_LOG=$((NUM_LOG + 1))
+}
+
+#for debug why log doubleing
+log "DEBUG: Script entry started" "PID: $$, started: $(date '+%H:%M:%S')"
+
+flip_state() {
+  for VAR_NAME in "$@"; do
+    eval "local VAL=\"\$$VAR_NAME\""
+    log "Flipping state for \$$VAR_NAME" "Now value: $VAL"
+    if [ "$VAL" = "ON" ]; then
+      eval "${VAR_NAME}_FLIP=OFF"
+      log "Flipped to OFF"
+    elif [ "$VAL" = "OFF" ]; then
+      eval "${VAR_NAME}_FLIP=ON"
+      log "Flipped to ON"
+    else
+      eval "${VAR_NAME}_FLIP=UNAVAILABLE"
+      log "Not flipped due to UNAVAILABLE"
+    fi
+  done
+}
+
+BUFFER_NUM=0
+
+writeinfo() {
+  if [ "$1" = "-s" ]; then
+    shift
+    local VAR_NAME="$1"
+    log "Writeinfo export called to variable: \$$1" "Starting building export variable"
+    local i=1
+    local CONTENT=""
+    while [ "$i" -le "$BUFFER_NUM" ]; do
+      log "Reading saved content of line № $i"
+      eval "LINE=\${SAVED_LINE_$i}"
+      CONTENT="${CONTENT}${LINE}"$'\n'
+      unset "SAVED_LINE_$i"
+      log "Line № $i sucsessfully unsetted"
+      i=$((i + 1))
+    done
+    eval "$VAR_NAME=\"\$CONTENT\""
+    BUFFER_NUM=0
+    log "Writeinfo export finished" "Final CONTENT = \" $CONTENT\" "
+    return
+  else
+    BUFFER_NUM=$((BUFFER_NUM + 1))
+    log "Writeinfo add new line triggered" "№$BUFFER_NUM, Adding:
+    $1"
+    eval "SAVED_LINE_$BUFFER_NUM=\"\$1\""
+  fi
 }
 
 handle_input() {
   while true; do
     case $(timeout 0.01 getevent -lqc 1) in
     *KEY_VOLUMEUP*DOWN*)
-      log -t "Vol+ pressed"
       echo "up"
       return
       ;;
     *KEY_VOLUMEDOWN*DOWN*)
-      log -t "Vol- pressed"
       echo "down"
       return
       ;;
@@ -93,31 +115,35 @@ handle_input() {
 show_menu() {
   local selected=1
   local total=$#
-   log -t "Menu started"
+   log "Menu started for $# arguments" "Arguments: $@"
     while true; do
       eval "local current=\"\$$selected\""
       ui_print "➔ $current"
       ui_print " "
        log "Now s: $selected, c: $current"
       case $(handle_input) in
-      "up") selected=$((selected % total + 1)) ;;
-      "down") break ;;
+      "up") selected=$((selected % total + 1))
+      log "Vol+ pressed. Next option triggered"
+      ;;
+      "down") break
+      log "Vol- pressed. Menu termination triggered"
+       ;;
       esac
     done
 
     ui_print " "
-    ui_print " You chose ➔ $current"
+    log -u " You chose ➔ $current" "Menu result s: $selected, c: $current"
     ui_print " "
-     log "Menu chose s: $selected, c: $current"
     return $selected
 }
 
 compatible_freq() {
+log "compatible_freq triggered with arguments" "№1 - $1;  №2 - $2; COMPATIBLE: $COMPATIBLE"
  local FREQ=$(cat /sys/devices/system/cpu/cpu${2}/cpufreq/scaling_available_frequencies)
  local MIN=$(echo "$FREQ" | awk '{print $1}')
  local MAX=$(echo "$FREQ" | awk '{print $NF}')
 
- log -t "Compatible freq gained for ${1}, featuring:
+ log "Compatible freq gained for ${1}, featuring:
 Min:$MIN and Max:$MAX"
 
  eval "${1}f=\"$MAX\""
@@ -125,6 +151,7 @@ Min:$MIN and Max:$MAX"
 }
 
 set_default() {
+log "set_default triggered with arguments" "№1 - $1;  №2 - $2; COMPATIBLE: $COMPATIBLE"
  if [ "$1" != "0" ]; then
   if [ "$COMPATIBLE" = "1" ]; then
    PRIMEf="2995200"
@@ -164,6 +191,7 @@ set_default() {
 }
 
 restore_settings() {
+log "restore_settings triggered with argument" "№1 - $1;  COMPATIBLE: $COMPATIBLE"
 source "${MODPATH/_update/}/settings.txt"
 if [ "$1" = 0 ]; then
  ui_print " "
@@ -173,7 +201,7 @@ if [ "$1" = 0 ]; then
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc
  FREQ_EXPORT="1"
  set_default 0 1
- log -t "Settings restored (freq)"
+ log "Settings restored (freq)"
  check_restore
 
 elif [ "$1" = "1" ]; then
@@ -184,7 +212,7 @@ elif [ "$1" = "1" ]; then
  export uALGf dALGf ALGc pCOREf bCOREf COREc
  OTHER_EXPORT="1"
  set_default 1 0
- log -t "Settings restored (NOT freq)"
+ log "Settings restored (NOT freq)"
  check_restore
 
 elif [ "$1" = "2" ]; then
@@ -196,12 +224,15 @@ elif [ "$1" = "2" ]; then
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc uALGf dALGf ALGc pCOREf bCOREf COREc
  FREQ_EXPORT="1"
  OTHER_EXPORT="1"
- log -t "Settings restored (all)"
+ log "Settings restored (all)"
  check_restore
+ else
+ log -a -u " There is unexpected error, send log please, aborting"  "Failed check in restore_settings, incorrect argument"
 fi
 }
 
 check_restore() {
+log "check_restore triggered; COMPATIBLE: $COMPATIBLE"
  if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ]; then
  FREQfail="1"
  log "Corrupted values detected after restoring in FREQ"
@@ -212,52 +243,56 @@ check_restore() {
  log "Corrupted values detected after restoring in ELSE"
  fi
 
-if [ "$FREQfail" = "1" ] || [ "ELSEfail" = "1" ]; then
+if [ "$FREQfail" = "1" ] && [ "ELSEfail" = "1" ]; then
   ui_print " "
-  log -t -u " There is a problem with restoring ALL, aborting it" "Restore settings fail (all), setting default"
+  log -u " There is a problem with restoring ALL, aborting it" "Restore settings fail (all), setting default"
   ui_print "___________________________________________________"
   set_default 1 1
   sleep 2
 
 elif [ "$FREQfail" = "1" ]; then
   ui_print " "
-  log -t -u " There is a problem with restoring FREQ, aborting it" "Restore settings fail (freq), setting default"
+  log -u " There is a problem with restoring FREQ, aborting it" "Restore settings fail (freq), setting default"
   ui_print "___________________________________________________"
   set_default 1 0
   sleep 2
 
 elif [ "ELSEfail" = "1" ]; then
   ui_print " "
-  log -t -u " There is a problem with restoring NOT freq, aborting it" "Restore settings fail (NOT freq), setting default"
+  log -u " There is a problem with restoring NOT freq, aborting it" "Restore settings fail (NOT freq), setting default"
   ui_print "___________________________________________________"
   set_default 0 1
   sleep 2
 
-elif [ "$FREQfail" != "1" ] || [ "ELSEfail" != "1" ]; then
-   log -t "Restoring values successfull"
+elif [ "$FREQfail" != "1" ] && [ "ELSEfail" != "1" ]; then
+   log "Restoring values successfull"
 else
-   log -u -s -T -a " There is unexpected error, send log please, aborting" "Values of FREQ or ELSE fail flags corrupt: $FREQfail || $ELSEfail . Tryed to restore settings from old instance, containing this:
+   log -a -u " There is unexpected error, send log please, aborting" "Values of FREQ or ELSE fail flags corrupt: $FREQfail || $ELSEfail . Tryed to restore settings from old instance, containing this:
 \"$(cat "${MODPATH/_update/}/settings.txt") \" "
 fi
 }
-
 
 # For future development to universal and forks
 PRIMEmin="787200"
 BIGmin="633600"
 LITTLEmin="300000"
 
-log -T "Functions defined, all OK. Start install"
+log "Functions defined, all OK. Starting install"
 
 MODEL=$(getprop ro.boot.prjname)
 case "$MODEL" in
   22624|22625|226B2)
     COMPATIBLE="1"
-    log "Realme GT3/neo5 detected!"
+    log "Realme GT3/neo5 detected!" "MODEL=$MODEL"
     ;;
   *)
     COMPATIBLE="0"
-    log "UNcompatible device detected!"
+    log "UNcompatible device detected!" "MODEL=$MODEL"
+    for CPU in 1 2 3 5 6; do
+       if [ -f "/sys/devices/system/cpu/cpu${CPU}/cpufreq_health/cpu_voltage" ]; then
+          log -a -u "Fully incompatible device detected" "Found CPU freq table for core $CPU"
+       fi
+    done
     ;;
 esac
 
@@ -282,7 +317,7 @@ elif [ "$COMPATIBLE" = "1" ]; then
       ui_print " "
 
 else
- log -u -s -T -a " There is unexpected error, send log please, aborting" "Unexpected error while checking compatible: $COMPATIBLE at start, aborting install"
+ log -a -u " There is unexpected error, send log please, aborting" "Unexpected error while checking compatible: $COMPATIBLE at start, aborting install"
 fi
 
 if [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "1" ]; then
@@ -336,13 +371,12 @@ else
 fi
 
 rm -rf "${MODPATH/_update/}"
-log -t "Old instance deleted"
+log "Old instance deleted"
 
 # main part
 
 if [ "$FREQ_EXPORT" != "1" ]; then
-   log -T "FREQ setup started due to EXPORT flag: $FREQ_EXPORT
- COMPATIBLE = $COMPATIBLE"
+   log "FREQ setup started due to EXPORT flag: $FREQ_EXPORT" "COMPATIBLE = $COMPATIBLE"
       ui_print " "
       ui_print " Configure your CPU frequency slowdowdown!    "
       ui_print "___________________________________________________"
@@ -414,15 +448,13 @@ ui_print "___________________________________________________"
     5) LITTLEf="1056000" LITTLEc="Maximum cut to freq  (1.0Gh)" ;;
     esac
 else
-   log -T "FREQ setup skipped due to FREQ flag: $ELSE_EXPORT
- COMPATIBLE = $COMPATIBLE"
+   log "FREQ setup skipped due to FREQ flag: $ELSE_EXPORT" "COMPATIBLE = $COMPATIBLE"
 fi
 
 #other
 
 if [ "$OTHER_EXPORT" != "1" ]; then
-log -T "ELSE setup started due to OTHER flag: $OTHER_EXPORT
- COMPATIBLE = $COMPATIBLE"
+log "ELSE setup started due to OTHER flag: $OTHER_EXPORT" "COMPATIBLE = $COMPATIBLE"
 ui_print " "
 ui_print "___________________________________________________"
       ui_print " "
@@ -487,7 +519,7 @@ ui_print "___________________________________________________"
     esac
 
 else
- log -T "ELSE setup skipped due to ELSE flag: $ELSE_EXPORT
+ log "ELSE setup skipped due to ELSE flag: $ELSE_EXPORT
  COMPATIBLE = $COMPATIBLE"
 fi
 
@@ -528,7 +560,7 @@ touch "$MODPATH/system.prop"
 touch "$MODPATH/settings.txt"
 chmod 755 "$MODPATH/service.sh" "$MODPATH/post-fs-data.sh" "$MODPATH/system.prop" "$MODPATH/settings.txt"
 
-log -t "Pre-exporting preparing done. Begin exporting Settings:"
+log "Pre-exporting preparing done. Begin exporting Settings:"
 
 SETTINGS="
 PRIMEf=\"$PRIMEf\"
@@ -544,8 +576,9 @@ pCOREf=\"$pCOREf\"
 bCOREf=\"$bCOREf\"
 COREc=\"$COREc\"
 "
-log -T "Settings have been saved: \"$SETTINGS\" "
+
 echo "$SETTINGS" > $MODPATH/settings.txt
+log "Settings have been saved:" "\"$SETTINGS\" "
 
 sleep 3
 
@@ -561,7 +594,7 @@ echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
 sleep 1
 echo 0 > /sys/devices/system/cpu/cpu7/online
 "
-   log "Prime core disabled, CPU_pCOREd: \"$CPU_pCOREd\" "
+   log "Prime core disabled" "CPU_pCOREd: \"$CPU_pCOREd\" "
 fi
 
 if [ $bCOREf = 0 ]; then
@@ -599,12 +632,12 @@ echo 0 > /sys/devices/system/cpu/cpu6/online
     echo "dalvik.vm.background-dex2oat-cpu-set=0,1,2,3" > $MODPATH/system.prop
       log "Big cores: 6,5,4 disabled"
    fi
-   log "Big cores disabled, CPU_bCOREd: \"$CPU_bCOREd\" "
+   log "Big cores disabled" "CPU_bCOREd: \"$CPU_bCOREd\" "
 fi
 
 CPU_COREd="$CPU_bCOREd $CPU_pCOREd"
 
-log -t "CPU cores state defined, contain: \"$CPU_COREd\" "
+log "CPU cores state defined" "CPU_COREd: \"$CPU_COREd\" "
 
 if [ $uALGf = 1 ]; then
    CPU_ALG=" "
@@ -645,7 +678,7 @@ echo 1 > /sys/devices/system/cpu/cpu7/cpufreq/conservative/ignore_nice_load
  > $dALGf threshold down"
 fi
 
-log -t "CPU algorithm defined, contain: $CPU_ALG"
+log "CPU algorithm defined" "CPU_ALG: \"$CPU_ALG\" "
 
 if [ "$COMPATIBLE" = "1" ]; then
    CPU_COREf="
@@ -663,10 +696,10 @@ elif [ "$COMPATIBLE" = "0" ]; then
    CPU_COREf=" "
    log "CPU Freq NOT set up cause of COMPATIBLE: $COMPATIBLE"
 else
-   log -u -s -T -a " There is unexpected error, send log please, aborting" "Unexpected error while checking compatible: $COMPATIBLE at CPU alg stage, aborting install"
+   log -a -u " There is unexpected error, send log please, aborting" "Unexpected error while checking compatible: $COMPATIBLE at CPU alg stage, aborting install"
 fi
 
-log -t "CPU freq reimp set, contain: \"$CPU_COREf\" "
+log "CPU freq reapply in system made" "CPU_COREf: \"$CPU_COREf\" "
 
 CPU="
 logcat -v brief | grep -m 1 'android.intent.action.USER_PRESENT'
@@ -674,7 +707,7 @@ logcat -v brief | grep -m 1 'android.intent.action.USER_PRESENT'
 sleep 90
 $CPU_COREf $CPU_ALG $CPU_COREd"
 
-log -t "Service finalized. Contain: \"$CPU\" "
+log "Service finalized" "Contain: \"$CPU\" "
 
 echo "$CPU" > $MODPATH/service.sh
 
@@ -717,17 +750,291 @@ lock_val $PRIMEmin /sys/devices/system/cpu/cpu7/cpufreq/scaling_min_freq
 "
    log "POST DONT set up to full, cause of COMPATIBLE: $COMPATIBLE"
 else
-   log -u -a -T " There is unexpected error, send log please, aborting" "Unexpected error while checking compatible: $COMPATIBLE at POST stage, aborting install"
+   log -a -u " There is unexpected error, send log please, aborting" "Unexpected error while checking compatible: $COMPATIBLE at POST stage, aborting install"
 fi
 
-log -t "POST finalized. Contain: \"$POST\" "
+log "POST finalized" "Contain: \"$POST\" "
 
 echo "$POST" > $MODPATH/post-fs-data.sh
 
 #check if all ok
 
  if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ] || [ -z "$uALGf" ] || [ -z "$dALGf" ] || [ -z "$ALGc" ] || [ -z "$pCOREf" ] || [ -z "$bCOREf" ] || [ -z "$COREc" ]; then
-   log -u -a -T -s " There is unexpected error, send log please, aborting" "Unexpected error while checking values at the end. Exporting all variables to dump. Compatible: $COMPATIBLE . Installing aborted"
+   log -a -u " There is unexpected error, send log please, aborting" "Unexpected error while checking values at the end. Exporting all variables to dump. Compatible: $COMPATIBLE . Installing aborted"
  fi
 
-log -T "All main part is done, script is ready for user and checked"
+log "All main part is done, script is ready for user and checked"
+
+
+#experimentals
+
+if [ "$COMPATIBLE" = "1" ]; then
+   log "Proceed to EXPIRIMENTAL settings due to compatible: $COMPATIBLE"
+EXIT_EXTRA="0"
+SCREENOFF_LOW_FREQ="OFF"
+SCREENOFF_DISABLE_CORES="OFF"
+SCREENOFF_POWERSAVE="UNAVAILABLE"
+MANUAL_CORES_ACTION="UNAVAILABLE"
+
+      ui_print " "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print "      EXPERIMENTAL SETTINGS, BE CAREFULL!    "
+
+
+   while true; do
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print " Choose which experiment to activate:"
+      ui_print "  1. Exit (finalize setings)     "
+      ui_print "  2. Cut freq down on sleep: $SCREENOFF_LOW_FREQ "
+      ui_print "  3. Disable cores on sleep: $SCREENOFF_DISABLE_CORES "
+#      ui_print "  4. Set governor to Powersave on sleep: $SCREENOFF_POWERSAVE "
+#      ui_print "  5. Manually enable and disable cores:  $MANUAL_CORES_ACTION "
+#      ui_print "  6. Cut down CPU freq table to chosen freq: "
+#      ui_print "  7. Undervolting. WARNING: could cause DAMAGE: "
+#      ui_print "  8. - "
+      ui_print " "
+      ui_print " Note: List and choose is dynamic and changes"
+      ui_print "       until you exit menu "
+      ui_print " "
+
+flip_state "SCREENOFF_LOW_FREQ" "SCREENOFF_DISABLE_CORES"
+
+   show_menu "Exit extra settings" "Cut freq on screenoff [TURN ${SCREENOFF_LOW_FREQ_FLIP}]" "Disable cores on screenoff [TURN ${SCREENOFF_DISABLE_CORES_FLIP}]" # "CPU governor to Powersave on screenoff [UNAVAILABLE]" "Manually enable and disable cores by Action button [UNAVAILABLE]"
+    case $? in
+    1) EXIT_EXTRA="1"
+    ;;
+    2) SCREENOFF_LOW_FREQ="$SCREENOFF_LOW_FREQ_FLIP"
+    ;;
+    3) SCREENOFF_DISABLE_CORES="$SCREENOFF_DISABLE_CORES_FLIP"
+    ;;
+#    4) SCREENOFF_POWERSAVE="$SCREENOFF_POWERSAVE_FLIP"
+#    ;;
+#    5) MANUAL_CORES_ACTION="$MANUAL_CORES_ACTION_FLIP"
+#    ;;
+#    6) 
+#    ;;
+#    7)
+#    ;;
+#    8)
+#    ;;
+    esac
+    if [ "$EXIT_EXTRA" = "1" ]; then
+       break
+    fi
+   done
+
+# logging menu
+
+if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+   log "Logging settings started due to user enabled screenoff experiment"
+   
+      ui_print " "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print "          CHOOSE YOUR LOGGING DETAILS    "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print " You activated some of experimental settings "
+      ui_print " please choose how detailed to log it, cause logs "
+      ui_print " puts additional pressure on your system, combating"
+      ui_print " power efficiency that you gain "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
+      ui_print "___________________________________________________"
+      ui_print " "
+      ui_print " Choose which log depth to activate:"
+      ui_print "  1. No any logs at all "
+      ui_print "     Do not put any additional code in "
+      ui_print "  2. Slight logs (record when state changes) "
+      ui_print "     If you wanna know are it working or no"
+      ui_print "  3. Full logging (record every ~10 seconds!) "
+      ui_print "     If you want to check everything "
+      ui_print "     Or you beta tester, etc... "
+      ui_print " "
+
+   show_menu "LOGGING: NONE" "LOGGING: GENERAL" "LOGGING: FULL"
+    case $? in
+    1) LOGGING="NONE" ;;
+    2) LOGGING="SOME" ;;
+    3) LOGGING="FULL" ;;
+    esac
+else
+   log "Logging menu skipped due to user skipped experimental"
+fi
+
+# final conf
+
+if [ $pCOREf = 0 ] && [ $bCOREf = 0 ]; then
+      SCREENOFF_DISABLE_CORES="OFF"
+fi
+
+if [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+   log "Starting recalculating disabled cores due to:" "SCREENOFF_DISABLE_CORES = \"$SCREENOFF_DISABLE_CORES\" "
+   if [ $pCOREf = 0 ]; then
+      CPU_pCOREe=" "
+      CPU_pCOREd=" "
+   elif [ $pCOREf = 1 ]; then
+      CPU_pCOREe="
+sleep 1
+echo 1 > /sys/devices/system/cpu/cpu7/online
+"
+      CPU_pCOREd="
+sleep 1
+echo 0 > /sys/devices/system/cpu/cpu7/online
+"
+   fi
+
+   if [ $bCOREf = 0 ]; then
+      CPU_bCOREe=" "
+      CPU_bCOREd=" "
+   elif [ $bCOREf = 1 ]; then
+      CPU_bCOREe="
+echo 1 > /sys/devices/system/cpu/cpu6/online
+"
+      CPU_bCOREd="
+echo 0 > /sys/devices/system/cpu/cpu6/online
+"
+    elif [ $bCOREf = 2 ]; then
+       CPU_bCOREe="
+echo 1 > /sys/devices/system/cpu/cpu5/online
+echo 1 > /sys/devices/system/cpu/cpu6/online
+"
+       CPU_bCOREd="
+echo 0 > /sys/devices/system/cpu/cpu5/online
+echo 0 > /sys/devices/system/cpu/cpu6/online
+"
+    elif [ $bCOREf = 3 ]; then
+       CPU_bCOREe="
+echo 1 > /sys/devices/system/cpu/cpu4/online
+echo 1 > /sys/devices/system/cpu/cpu5/online
+echo 1 > /sys/devices/system/cpu/cpu6/online
+"
+       CPU_bCOREd="
+echo 0 > /sys/devices/system/cpu/cpu4/online
+echo 0 > /sys/devices/system/cpu/cpu5/online
+echo 0 > /sys/devices/system/cpu/cpu6/online
+"
+   fi
+
+   CPU_COREd="$CPU_bCOREd $CPU_pCOREd"
+   CPU_COREe="$CPU_bCOREe $CPU_pCOREe"
+   
+fi
+
+if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+   if [ "$LOGGING" = "SOME" ] || [ "$LOGGING" = "FULL" ]; then
+   writeinfo '
+LOGFILE="/sdcard/Quantom_Screenoff.log"
+
+echo "Start logging, clearing logfile" > "$LOGFILE"
+
+log() {
+  echo "[$(date "+%H:%M:%S")] > $1" >> "$LOGFILE"
+}
+' 
+   fi
+   #first part
+   writeinfo "SCREEN=\"1\"
+while true; do
+STATE=\$(dumpsys power | grep -i 'mHoldingDisplaySuspendBlocker' | awk -F= '{print \$2}' | tr -d '\r')"
+    if [ "$LOGGING" = "FULL" ]; then
+      writeinfo  '      log "Cycle alive: Current state: $STATE" '
+    fi
+    writeinfo 'if [ "$STATE" = "true" ]; then 
+   if [ "$SCREEN" = "1" ]; then
+      sleep 2'
+   if [ "$LOGGING" = "FULL" ]; then
+      writeinfo '      log "Skipped action: screen was ON and still ON" '
+   fi
+writeinfo '   else
+      SCREEN="1"'
+   if [ "$LOGGING" = "SOME" ] ||[ "$LOGGING" = "FULL" ]; then
+      writeinfo '      log "Reverting action: screen was OFF and turned ON" '
+   fi
+   if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+      writeinfo "echo $LITTLEf >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+sleep 2
+$CPU_COREe"
+
+   elif [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "OFF" ]; then
+      writeinfo "echo $LITTLEf >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+sleep 2"
+
+   elif [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "OFF" ]; then
+      writeinfo "echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+sleep 2
+$CPU_COREe" 
+
+   fi
+writeinfo '   fi
+elif [ "$STATE" = "false" ]; then 
+   if [ "$SCREEN" = "0" ]; then'
+
+   if [ "$LOGGING" = "FULL" ]; then
+      writeinfo '      log "Skipped action: screen was OFF and still OFF" '
+   fi
+   # second part, when screen is off
+   writeinfo '      sleep 2
+   else
+      SCREEN="0"'
+
+   if [ "$LOGGING" = "SOME" ] ||[ "$LOGGING" = "FULL" ]; then
+      writeinfo '      log "Executing action: screen was ON and turned OFF" '
+   fi
+   if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+      writeinfo "echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+sleep 2
+$CPU_COREd"
+
+   elif [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "OFF" ]; then
+      writeinfo "echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+sleep 2"
+
+   elif [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "OFF" ]; then
+      writeinfo "echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+sleep 2
+$CPU_COREd"
+
+   fi
+writeinfo '   fi
+fi
+   sleep 8
+done'
+
+fi
+
+writeinfo -s "EXP_SERVICE"
+log "Writeinfo finished. Insetring it to SERVICE"
+echo "$EXP_SERVICE" >> "$MODPATH/service.sh"
+
+log "Experimental settings finalized. Service: " "\"$(cat $MODPATH/service.sh)\""
+
+else
+   log "Experimental settings skipped due to compatible: $COMPATIBLE"
+fi
+
+log "Install complete. Dumping values for debug" #"$(set | sort)"

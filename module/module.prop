@@ -1,7 +1,7 @@
 id=Quantom_Cpu_Limiter
 name=CPU Limiter for GT3/neo5
-version=1.2
-versionCode=12
+version=1.3
+versionCode=13
 author=Quantom (a.k.a. Quantom2)
-description=Slow down CPU cores to save more battery on idle. Highly customizable in most aspects, chose configuration on install, restore settings when update and more! Note: only for GT3/neo5, but have compability mode for other devices.
+description=Slow down CPU cores to save more battery on idle. Highly customizable in most aspects, chose configuration on install, restore settings when update and more! Note: only for GT3/neo5, but have compability mode for other devices. Now with fresh experiments!
 updateJson=https://raw.githubusercontent.com/Quantom2/Realme-GT3-neo5-CPU-limiter/refs/heads/main/update.json
