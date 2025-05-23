@@ -7,11 +7,14 @@ A Magisk/KSU bazed module to slow down your CPU to make your screen time better.
 - Can change Governor of your CPU to more energy efficient Conservative or fully energy efficient Powersave
 - Can disable up to 4 CPU cores to quickly turn down power consumption in cost of raw computing power
 - Can store and re-enact current configuration on re-install and updates, so futureproof to possible updates
+### Experimental features:
+- Disable cores when screen is off - disable chosen cores while your phone is resting, preserving power
+- Lower your CPU frequency while screen is off to preserve battery
 
 ## Planned for future updates
 - More flexible options for governors — choose for each cluster separately, not only for one of them. E.g. Powersave to BIG and PRIME and conservative to LITTLE to better energy efficient without huge perfomace hit, etc.
-- Options to dynamicaly enable and disable cores on-the-go (in case you need computing power right now!), featuring by-hand (action button) and by-script options (they would be incompatible with each other)
-- Compatibility with other devices, mybe in form of universal script. Also you can adapt module for your kernel, read README and respect license please.
+- Options to dynamicaly enable and disable cores on-the-go (in case you need computing power right now!), featuring by-hand (action button) option
+- More compatibility with other devices, maybe in form of universal script. Also you can adapt module for your kernel, read README and respect license please.
 
 # FAQ
 ## Limiting freqency of your CPU
@@ -30,6 +33,9 @@ In fact, disabling a CPU core won't physicaly disable it, the CPU just won't put
 For example, you disable a 1x BIG core. Because it still UP and running, just won't compute anything, it will run on the same freq as rest of BIG cores that runs, e.g. jump up to max freq on every finger touch (even if it didn't compute anything, yes), so economy would be not so high than it can be.
 Compared to this, when you shut down a full cluster, this will result in it staying in the lowest freqency possible, because there no any load on cluster, why jump up freq?
 Considering all of that it is recommended to shut down PRIME core if you don't need it computing power, as it would economy more power than BIG core, even 2 BIG cores disabling
+
+## Experimental settings
+This settings are highly experimental and could help you get more juice out of battery or make things worse. They EXPERIMENTAl after all. I can guarantee that it works but I can't guarantee that it would be better than nothing - you have to test youyrself! Also any feedback on this would ne highly appriciated.
 
 
 ## Why you migh need this?
