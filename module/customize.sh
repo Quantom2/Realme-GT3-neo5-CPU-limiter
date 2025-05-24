@@ -115,7 +115,7 @@ handle_input() {
 show_menu() {
   local selected=1
   local total=$#
-   log "Menu started for $# arguments" "Arguments: $@"
+   log "Menu started for $# arguments"
     while true; do
       eval "local current=\"\$$selected\""
       ui_print "➔ $current"
@@ -272,6 +272,13 @@ else
 fi
 }
 
+remind_controls() {
+ui_print "___________________________________________________"
+ui_print " "
+ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
+ui_print "___________________________________________________"
+}
+
 # For future development to universal and forks
 PRIMEmin="787200"
 BIGmin="633600"
@@ -324,10 +331,7 @@ if [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "1" ]; then
       ui_print " "
       log -u " Previous install detected!" "For compatible device"
       ui_print " Choose to restore configuration or setup all again    "
-      ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print "   1. Restore all settings       "
       ui_print "   2. Restore only freq settings "
@@ -346,10 +350,7 @@ elif [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "0" ]; then
       ui_print " "
       log -u " Previous install detected!" "For incompatible device"
       ui_print " Choose to restore configuration or setup all again    "
-      ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print "   1. Restore only compatible settings "
       ui_print "   2. Setup all from scratch     "
@@ -379,10 +380,7 @@ if [ "$FREQ_EXPORT" != "1" ]; then
    log "FREQ setup started due to EXPORT flag: $FREQ_EXPORT" "COMPATIBLE = $COMPATIBLE"
       ui_print " "
       ui_print " Configure your CPU frequency slowdowdown!    "
-      ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print " Choose frequency cut to PRIME cluster"
       ui_print "   1. Stock freq           (3.0Gh)"
@@ -402,10 +400,7 @@ if [ "$FREQ_EXPORT" != "1" ]; then
     5) PRIMEf="1401600" PRIMEc="Maximum cut to freq  (1.4Gh)" ;;
     esac
 
-ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print " Choose frequency cut to BIG cluster"
       ui_print "   1. Stock freq           (2.5Gh)"
@@ -425,10 +420,8 @@ ui_print "___________________________________________________"
     5) BIGf="1324800" BIGc="Maximum cut to freq  (1.3Gh)" ;;
     esac
 
-ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+
+      remind_controls
       ui_print " "
       ui_print " Choose frequency cut to LITTLE cluster"
       ui_print "   1. Stock freq           (1.8Gh)"
@@ -459,10 +452,7 @@ ui_print " "
 ui_print "___________________________________________________"
       ui_print " "
       ui_print " Configure your CPU algorithm!    "
-      ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print " Choose desired CPU algorithm"
       ui_print "   1. Stock                "
@@ -487,10 +477,7 @@ ui_print " "
 ui_print "___________________________________________________"
       ui_print " "
       ui_print " Configure your disabled CPU cores!    "
-      ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print " Choose desired CPU cores to disable"
       ui_print "   1. Not disable                 "
@@ -783,10 +770,7 @@ MANUAL_CORES_ACTION="UNAVAILABLE"
 
 
    while true; do
-      ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print " Choose which experiment to activate:"
       ui_print "  1. Exit (finalize setings)     "
@@ -843,10 +827,7 @@ if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; th
       ui_print " please choose how detailed to log it, cause logs "
       ui_print " puts additional pressure on your system, combating"
       ui_print " power efficiency that you gain "
-      ui_print "___________________________________________________"
-      ui_print " "
-      ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-      ui_print "___________________________________________________"
+      remind_controls
       ui_print " "
       ui_print " Choose which log depth to activate:"
       ui_print "  1. No any logs at all "
