@@ -279,7 +279,23 @@ ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
 ui_print "___________________________________________________"
 }
 
+WIDTH=52
+
+center_print() {
+  local LENGTH=${#1}
+  local PADDING=$(( (WIDTH - LENGTH) / 2 ))
+
+  local SPACE=""
+  while [ $PADDING -gt 0 ]; do
+    SPACE="$SPACE "
+    PADDING=$((PADDING - 1))
+  done
+
+  ui_print "${SPACE}${1}"
+}
+
 # For future development to universal and forks
+
 PRIMEmin="787200"
 BIGmin="633600"
 LITTLEmin="300000"
@@ -310,7 +326,7 @@ if [ "$COMPATIBLE" = "0" ]; then
       ui_print "___________________________________________________"
       ui_print " "
       ui_print " Uncompatible device (not Realme GT3/neo5) detected! "
-      ui_print " CPU freq unavabilive, but you still can change Governor "
+      ui_print " CPU freq unavabilive, but you can change Governor "
       ui_print "___________________________________________________"
       ui_print " "
 
@@ -379,10 +395,10 @@ log "Old instance deleted"
 if [ "$FREQ_EXPORT" != "1" ]; then
    log "FREQ setup started due to EXPORT flag: $FREQ_EXPORT" "COMPATIBLE = $COMPATIBLE"
       ui_print " "
-      ui_print " Configure your CPU frequency slowdowdown!    "
+      center_print "Configure your CPU frequency slowdowdown!"
       remind_controls
       ui_print " "
-      ui_print " Choose frequency cut to PRIME cluster"
+      center_print "Choose frequency cut to PRIME cluster"
       ui_print "   1. Stock freq           (3.0Gh)"
       ui_print "   2. Light cut to freq    (2.4Gh)"
       ui_print "   3. Medium cut to freq   (2.0Gh)"
@@ -402,7 +418,7 @@ if [ "$FREQ_EXPORT" != "1" ]; then
 
       remind_controls
       ui_print " "
-      ui_print " Choose frequency cut to BIG cluster"
+      center_print "Choose frequency cut to BIG cluster"
       ui_print "   1. Stock freq           (2.5Gh)"
       ui_print "   2. Light cut to freq    (1.9Gh)"
       ui_print "   3. Medium cut to freq   (1.7Gh)"
@@ -423,7 +439,7 @@ if [ "$FREQ_EXPORT" != "1" ]; then
 
       remind_controls
       ui_print " "
-      ui_print " Choose frequency cut to LITTLE cluster"
+      center_print "Choose frequency cut to LITTLE cluster"
       ui_print "   1. Stock freq           (1.8Gh)"
       ui_print "   2. Light cut to freq    (1.6Gh)"
       ui_print "   3. Medium cut to freq   (1.4Gh)"
@@ -451,10 +467,10 @@ log "ELSE setup started due to OTHER flag: $OTHER_EXPORT" "COMPATIBLE = $COMPATI
 ui_print " "
 ui_print "___________________________________________________"
       ui_print " "
-      ui_print " Configure your CPU algorithm!    "
+      center_print "Configure your CPU algorithm!    "
       remind_controls
       ui_print " "
-      ui_print " Choose desired CPU algorithm"
+      center_print "Choose desired CPU algorithm"
       ui_print "   1. Stock                "
       ui_print "   2. Conservative light   "
       ui_print "   3. Conservative medium  "
@@ -476,10 +492,10 @@ ui_print "___________________________________________________"
 ui_print " "
 ui_print "___________________________________________________"
       ui_print " "
-      ui_print " Configure your disabled CPU cores!    "
+      center_print "Configure your disabled CPU cores!    "
       remind_controls
       ui_print " "
-      ui_print " Choose desired CPU cores to disable"
+      center_print "Choose desired CPU cores to disable"
       ui_print "   1. Not disable                 "
       ui_print "   2. Disable 1 BIG core          "
       ui_print "   3. Disable PRIME core          "
@@ -518,7 +534,7 @@ sleep 1
 ui_print " "
 ui_print "___________________________________________________"
       ui_print " "
-      ui_print " Your configured, very own CPU slowdown settings:"
+      center_print "Your configured, very own CPU slowdown settings:"
       ui_print "___________________________________________________"
       ui_print " "
       ui_print " PRIME core cluster frequency:
@@ -766,7 +782,7 @@ MANUAL_CORES_ACTION="UNAVAILABLE"
       ui_print " "
       ui_print "___________________________________________________"
       ui_print " "
-      ui_print "      EXPERIMENTAL SETTINGS, BE CAREFULL!    "
+      center_print "EXPERIMENTAL SETTINGS, BE CAREFULL!"
 
 
    while true; do
@@ -820,7 +836,7 @@ if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; th
       ui_print " "
       ui_print "___________________________________________________"
       ui_print " "
-      ui_print "          CHOOSE YOUR LOGGING DETAILS    "
+      center_print "CHOOSE YOUR LOGGING DETAILS"
       ui_print "___________________________________________________"
       ui_print " "
       ui_print " You activated some of experimental settings "
@@ -829,7 +845,7 @@ if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; th
       ui_print " power efficiency that you gain "
       remind_controls
       ui_print " "
-      ui_print " Choose which log depth to activate:"
+      center_print "Choose which log depth to activate:"
       ui_print "  1. No any logs at all "
       ui_print "     Do not put any additional code in "
       ui_print "  2. Slight logs (record when state changes) "
