@@ -196,7 +196,7 @@ source "${MODPATH/_update/}/settings.txt"
 if [ "$1" = 0 ]; then
  ui_print " "
  ui_print " Restoring your previous freq settings...    "
- ui_print "___________________________________________________"
+ div
 
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc
  FREQ_EXPORT="1"
@@ -207,7 +207,7 @@ if [ "$1" = 0 ]; then
 elif [ "$1" = "1" ]; then
  ui_print " "
  ui_print " Restoring your previous NOT freq settings...    "
- ui_print "___________________________________________________"
+ div
 
  export uALGf dALGf ALGc pCOREf bCOREf COREc
  OTHER_EXPORT="1"
@@ -218,7 +218,7 @@ elif [ "$1" = "1" ]; then
 elif [ "$1" = "2" ]; then
  ui_print " "
  ui_print " Restoring all your previous settings... "
- ui_print "___________________________________________________"
+ div
 
 
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc uALGf dALGf ALGc pCOREf bCOREf COREc
@@ -246,21 +246,21 @@ log "check_restore triggered; COMPATIBLE: $COMPATIBLE"
 if [ "$FREQfail" = "1" ] && [ "ELSEfail" = "1" ]; then
   ui_print " "
   log -u " There is a problem with restoring ALL, aborting it" "Restore settings fail (all), setting default"
-  ui_print "___________________________________________________"
+  div
   set_default 1 1
   sleep 2
 
 elif [ "$FREQfail" = "1" ]; then
   ui_print " "
   log -u " There is a problem with restoring FREQ, aborting it" "Restore settings fail (freq), setting default"
-  ui_print "___________________________________________________"
+  div
   set_default 1 0
   sleep 2
 
 elif [ "ELSEfail" = "1" ]; then
   ui_print " "
   log -u " There is a problem with restoring NOT freq, aborting it" "Restore settings fail (NOT freq), setting default"
-  ui_print "___________________________________________________"
+  div
   set_default 0 1
   sleep 2
 
@@ -272,14 +272,92 @@ else
 fi
 }
 
+# UI system rework functions stacked below:
+
 remind_controls() {
-ui_print "___________________________________________________"
+div
 ui_print " "
-ui_print "   [VOL+] - Change selection | [VOL-] - Confirm    "
-ui_print "___________________________________________________"
+center_print "[VOL+] - Change selection | [VOL-] - Confirm"
+div
 }
 
-WIDTH=52
+WIDTH=53
+
+optimize_div() {
+  local LENGTH=$1
+  DIV=""
+  while [ $LENGTH -gt 0 ]; do
+    DIV="_$DIV"
+    LENGTH=$((LENGTH - 1))
+  done
+}
+
+optimize_div $WIDTH
+
+div() {
+  ui_print "$DIV"
+}
+
+wordcut() {
+   while [ ${#REMAINING} -gt $LEN ]; do
+      local PART=$(echo "$REMAINING" | cut -c1-$LEN)
+      ui_print "${PREFIX}${PART% *}"
+      REMAINING="${REMAINING/${PART% *} }"
+   done
+}
+
+list_print() {
+  local LIST_COUNTER=1
+  local LEN=$((WIDTH - 4))
+
+  for TEXT in "$@"; do
+    local PREFIX=" $LIST_COUNTER. "
+  if [ ${#TEXT} -lt $LEN ]; then
+     ui_print "${PREFIX}${TEXT}"
+  else
+    local REMAINING="$TEXT"
+    local PART=$(echo "$TEXT" | cut -c1-$LEN)
+      ui_print "${PREFIX}${PART% *}"
+      REMAINING="${TEXT/${PART% *} }"
+      PREFIX="    "
+
+    wordcut
+
+    ui_print "${PREFIX}${REMAINING}"
+  fi 
+    LIST_COUNTER=$((LIST_COUNTER + 1))
+  done
+}
+
+note_print() {
+  local LEN=$((WIDTH - 7))
+  local PREFIX=" Note: "
+  if [ ${#1} -lt $LEN ]; then
+     ui_print "${PREFIX}${1}"
+  else
+    local PART=$(echo "$1" | cut -c1-$LEN)
+      ui_print "${PREFIX}${PART% *}"
+      REMAINING="${1/${PART% *} }"
+      PREFIX="       "
+
+    wordcut
+
+    ui_print "${PREFIX}${REMAINING}"
+  fi 
+}
+
+cut_print(){
+  local LEN=WIDTH
+  local PREFIX=" "
+  local PART=$(echo "$1" | cut -c1-$LEN)
+  ui_print "${PREFIX}${PART% *}"
+  REMAINING="${1/${PART% *} }"
+
+    wordcut
+
+    ui_print "${PREFIX}${REMAINING}"
+  fi   
+}
 
 center_print() {
   local LENGTH=${#1}
@@ -293,6 +371,7 @@ center_print() {
 
   ui_print "${SPACE}${1}"
 }
+
 
 # For future development to universal and forks
 
@@ -323,20 +402,20 @@ esac
 
 if [ "$COMPATIBLE" = "0" ]; then
 
-      ui_print "___________________________________________________"
+      div
       ui_print " "
       ui_print " Uncompatible device (not Realme GT3/neo5) detected! "
       ui_print " CPU freq unavabilive, but you can change Governor "
-      ui_print "___________________________________________________"
+      div
       ui_print " "
 
 elif [ "$COMPATIBLE" = "1" ]; then
 
-      ui_print "___________________________________________________"
+      div
       ui_print " "
       ui_print " Realme GT3/neo5 detected!    "
       ui_print " All settings fully avalible  "
-      ui_print "___________________________________________________"
+      div
       ui_print " "
 
 else
@@ -349,16 +428,13 @@ if [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "1" ]; then
       ui_print " Choose to restore configuration or setup all again    "
       remind_controls
       ui_print " "
-      ui_print "   1. Restore all settings       "
-      ui_print "   2. Restore only freq settings "
-      ui_print "   3. Restore only not freq settings "
-      ui_print "   4. Setup all from scratch     "
+      list_print "Restore all settings" "Restore only freq settings" "Restore only not freq settings" "Setup all from scratch"
       ui_print " "
    show_menu "Restore all settings" "Restore only freq settings" "Restore only not freq settings" "Setup all from scratch"
     case $? in
     1) restore_settings 2 ;;
-    2) restore_settings 1 ;;
-    3) restore_settings 0 ;;
+    2) restore_settings 0 ;;
+    3) restore_settings 1 ;;
     4) set_default 1 1 ;;
     esac
 elif [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "0" ]; then
@@ -368,8 +444,7 @@ elif [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "0" ]; then
       ui_print " Choose to restore configuration or setup all again    "
       remind_controls
       ui_print " "
-      ui_print "   1. Restore only compatible settings "
-      ui_print "   2. Setup all from scratch     "
+      list_print "Restore only compatible settings" "Setup all from scratch"
       ui_print " "
    show_menu "Restore only compatible settings" "Setup all from scratch"
     case $? in
@@ -382,7 +457,7 @@ else
       ui_print " "
       log -u " No any previous install detected!"
       ui_print " Setting all up from scratch:    "
-      ui_print "___________________________________________________"
+      div
  set_default 1 1
 
 fi
@@ -399,13 +474,14 @@ if [ "$FREQ_EXPORT" != "1" ]; then
       remind_controls
       ui_print " "
       center_print "Choose frequency cut to PRIME cluster"
-      ui_print "   1. Stock freq           (3.0Gh)"
-      ui_print "   2. Light cut to freq    (2.4Gh)"
-      ui_print "   3. Medium cut to freq   (2.0Gh)"
-      ui_print "   4. Huge cut to freq     (1.7Gh)"
-      ui_print "   5. Maximum cut to freq  (1.4Gh)"
+      list_print \
+      "Stock freq           (3.0Gh)" \
+      "Light cut to freq    (2.4Gh)" \
+      "Medium cut to freq   (2.0Gh)" \
+      "Huge cut to freq     (1.7Gh)" \
+      "Maximum cut to freq  (1.4Gh)"
       ui_print " "
-      ui_print " Note: Medium setting are recommended"
+      note_print "Medium setting are recommended"
       ui_print " "
    show_menu "Stock freq (3.0Gh)" "Light cut to freq (2.4Gh)" "Medium cut to freq (2.0Gh)" "Huge cut to freq (1.7Gh)" "Maximum cut to freq (1.4Gh)"
     case $? in
@@ -419,13 +495,14 @@ if [ "$FREQ_EXPORT" != "1" ]; then
       remind_controls
       ui_print " "
       center_print "Choose frequency cut to BIG cluster"
-      ui_print "   1. Stock freq           (2.5Gh)"
-      ui_print "   2. Light cut to freq    (1.9Gh)"
-      ui_print "   3. Medium cut to freq   (1.7Gh)"
-      ui_print "   4. Huge cut to freq     (1.5Gh)"
-      ui_print "   5. Maximum cut to freq  (1.3Gh)"
+      list_print \
+      "Stock freq           (2.5Gh)" \
+      "Light cut to freq    (1.9Gh)" \
+      "Medium cut to freq   (1.7Gh)" \
+      "Huge cut to freq     (1.5Gh)" \
+      "Maximum cut to freq  (1.3Gh)"
       ui_print " "
-      ui_print " Note: Medium setting are recommended"
+      note_print "Medium setting are recommended"
       ui_print " "
    show_menu "Stock freq (2.5Gh)" "Light cut to freq (1.9Gh)" "Medium cut to freq (1.7Gh)" "Huge cut to freq (1.5Gh)" "Maximum cut to freq (1.3Gh)"
     case $? in
@@ -440,13 +517,14 @@ if [ "$FREQ_EXPORT" != "1" ]; then
       remind_controls
       ui_print " "
       center_print "Choose frequency cut to LITTLE cluster"
-      ui_print "   1. Stock freq           (1.8Gh)"
-      ui_print "   2. Light cut to freq    (1.6Gh)"
-      ui_print "   3. Medium cut to freq   (1.4Gh)"
-      ui_print "   4. Huge cut to freq     (1.2Gh)"
-      ui_print "   5. Maximum cut to freq  (1.0Gh)"
+      list_print \
+      "Stock freq           (1.8Gh)" \
+      "Light cut to freq    (1.6Gh)" \
+      "Medium cut to freq   (1.4Gh)" \
+      "Huge cut to freq     (1.2Gh)" \
+      "Maximum cut to freq  (1.0Gh)"
       ui_print " "
-      ui_print " Note: Medium setting are recommended"
+      note_print "Medium setting are recommended"
       ui_print " "
    show_menu "Stock freq (1.8Gh)" "Light cut to freq (1.6Gh)" "Medium cut to freq (1.4Gh)" "Huge cut to freq (1.2Gh)" "Maximum cut to freq (1.0Gh)"
     case $? in
@@ -464,21 +542,22 @@ fi
 
 if [ "$OTHER_EXPORT" != "1" ]; then
 log "ELSE setup started due to OTHER flag: $OTHER_EXPORT" "COMPATIBLE = $COMPATIBLE"
-ui_print " "
-ui_print "___________________________________________________"
+  ui_print " "
+  div
       ui_print " "
       center_print "Configure your CPU algorithm!    "
       remind_controls
       ui_print " "
       center_print "Choose desired CPU algorithm"
-      ui_print "   1. Stock                "
-      ui_print "   2. Conservative light   "
-      ui_print "   3. Conservative medium  "
-      ui_print "   4. Conservative max     "
-      ui_print "   5. Powersave            "
+      list_print \
+      "Stock                " \
+      "Conservative light   " \
+      "Conservative medium  " \
+      "Conservative max     " \
+      "Powersave            "
       ui_print " "
-      ui_print " Note: Learn more about difference in README"
-      ui_print " Note: Medium conservative recommended"
+      note_print "Learn more about difference in README"
+      note_print "Medium conservative recommended"
       ui_print " "
    show_menu "Stock algorithm" "Conservative light" "Conservative medium" "Conservative max" "Powersave algorithm"
     case $? in
@@ -489,25 +568,26 @@ ui_print "___________________________________________________"
     5) uALGf="0" dALGf="1" ALGc="Powersave algorithm" ;;
     esac
 
-ui_print " "
-ui_print "___________________________________________________"
+  ui_print " "
+  div
       ui_print " "
       center_print "Configure your disabled CPU cores!    "
       remind_controls
       ui_print " "
       center_print "Choose desired CPU cores to disable"
-      ui_print "   1. Not disable                 "
-      ui_print "   2. Disable 1 BIG core          "
-      ui_print "   3. Disable PRIME core          "
-      ui_print "   4. Disable 2 BIG cores         "
-      ui_print "   5. Disable PRIME + 1 BIG cores "
-      ui_print "   6. Disable 3 BIG cores         "
-      ui_print "   7. Disable PRIME + 2 BIG cores "
-      ui_print "   8. Disable PRIME + 3 BIG cores "
+      list_print \
+      "Not disable                 " \
+      "Disable 1 BIG core          " \
+      "Disable PRIME core          " \
+      "Disable 2 BIG cores         " \
+      "Disable PRIME + 1 BIG cores " \
+      "Disable 3 BIG cores         " \
+      "Disable PRIME + 2 BIG cores " \
+      "Disable PRIME + 3 BIG cores "
       ui_print " "
-      ui_print " Note: Options sorted from least to most impacting"
-      ui_print " Note: Options 4 and 5 recommended,"
-      ui_print "       4 if play demanding games, 5 if not"
+      note_print "Options sorted from least to most impacting"
+      note_print "Options 4 and 5 recommended, 4 if play demanding games, 5 if not"
+      note_print "This setting soon would be deprecated, option 3 recommended if using Experimental settings"
       ui_print " "
    show_menu "Not disable" "Disable 1 BIG core" "Disable PRIME core" "Disable 2 BIG cores" "Disable PRIME + 1 BIG cores" "Disable 3 BIG cores" "Disable PRIME + 2 BIG cores" "Disable PRIME + 3 BIG cores"
     case $? in
@@ -532,10 +612,10 @@ fi
 sleep 1
 
 ui_print " "
-ui_print "___________________________________________________"
+div
       ui_print " "
       center_print "Your configured, very own CPU slowdown settings:"
-      ui_print "___________________________________________________"
+      div
       ui_print " "
       ui_print " PRIME core cluster frequency:
   ➔ $PRIMEc"
@@ -551,7 +631,7 @@ ui_print "___________________________________________________"
       ui_print " "
       ui_print " You chose to:
   ➔ $COREc of your CPU"
-      ui_print "___________________________________________________"
+      div
       ui_print " "
       log -u " Generating your chosen configuration..."
       ui_print " Please wait..."
@@ -776,11 +856,11 @@ if [ "$COMPATIBLE" = "1" ]; then
 EXIT_EXTRA="0"
 SCREENOFF_LOW_FREQ="OFF"
 SCREENOFF_DISABLE_CORES="OFF"
-SCREENOFF_POWERSAVE="UNAVAILABLE"
-MANUAL_CORES_ACTION="UNAVAILABLE"
+SCREENOFF_POWERSAVE="OFF"
+MANUAL_CORES_ACTION="OFF"
 
       ui_print " "
-      ui_print "___________________________________________________"
+      div
       ui_print " "
       center_print "EXPERIMENTAL SETTINGS, BE CAREFULL!"
 
@@ -788,34 +868,46 @@ MANUAL_CORES_ACTION="UNAVAILABLE"
    while true; do
       remind_controls
       ui_print " "
-      ui_print " Choose which experiment to activate:"
-      ui_print "  1. Exit (finalize setings)     "
-      ui_print "  2. Cut freq down on sleep: $SCREENOFF_LOW_FREQ "
-      ui_print "  3. Disable cores on sleep: $SCREENOFF_DISABLE_CORES "
-#      ui_print "  4. Set governor to Powersave on sleep: $SCREENOFF_POWERSAVE "
-#      ui_print "  5. Manually enable and disable cores:  $MANUAL_CORES_ACTION "
+      center_print " Choose which experiment to activate:"
+      list_print \
+      "Exit (finalize setings)     " \
+      "Cut freq down on sleep: $SCREENOFF_LOW_FREQ " \
+      "Disable cores on sleep: $SCREENOFF_DISABLE_CORES " \
+      "Set governor to Powersave on sleep: $SCREENOFF_POWERSAVE " \
+      "Manually enable and disable cores:  $MANUAL_CORES_ACTION "
 #      ui_print "  6. Cut down CPU freq table to chosen freq: "
 #      ui_print "  7. Undervolting. WARNING: could cause DAMAGE: "
 #      ui_print "  8. - "
       ui_print " "
-      ui_print " Note: List and choose is dynamic and changes"
-      ui_print "       until you exit menu "
+      note_print "List and choose is dynamic and changes until you exit menu "
       ui_print " "
 
-flip_state "SCREENOFF_LOW_FREQ" "SCREENOFF_DISABLE_CORES"
+flip_state "SCREENOFF_LOW_FREQ" "SCREENOFF_DISABLE_CORES" "SCREENOFF_POWERSAVE" "MANUAL_CORES_ACTION"
 
-   show_menu "Exit extra settings" "Cut freq on screenoff [TURN ${SCREENOFF_LOW_FREQ_FLIP}]" "Disable cores on screenoff [TURN ${SCREENOFF_DISABLE_CORES_FLIP}]" # "CPU governor to Powersave on screenoff [UNAVAILABLE]" "Manually enable and disable cores by Action button [UNAVAILABLE]"
+   show_menu "Exit extra settings" "Cut freq on screenoff [TURN ${SCREENOFF_LOW_FREQ_FLIP}]" "Disable cores on screenoff [TURN ${SCREENOFF_DISABLE_CORES_FLIP}]" "CPU governor to Powersave on screenoff [TURN ${SCREENOFF_POWERSAVE_FLIP}]" "Manually enable and disable cores by Action button [TURN ${MANUAL_CORES_ACTION_FLIP}]"
     case $? in
     1) EXIT_EXTRA="1"
     ;;
     2) SCREENOFF_LOW_FREQ="$SCREENOFF_LOW_FREQ_FLIP"
-    ;;
+    if [ "$SCREENOFF_POWERSAVE" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "ON" ]; then
+       SCREENOFF_POWERSAVE="OFF"
+    fi
+    ;; 
     3) SCREENOFF_DISABLE_CORES="$SCREENOFF_DISABLE_CORES_FLIP"
+    if [ "$MANUAL_CORES_ACTION" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+       MANUAL_CORES_ACTION="OFF"
+    fi
     ;;
-#    4) SCREENOFF_POWERSAVE="$SCREENOFF_POWERSAVE_FLIP"
-#    ;;
-#    5) MANUAL_CORES_ACTION="$MANUAL_CORES_ACTION_FLIP"
-#    ;;
+    4) SCREENOFF_POWERSAVE="$SCREENOFF_POWERSAVE_FLIP"
+    if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
+       SCREENOFF_LOW_FREQ="OFF"
+    fi
+    ;;
+    5) MANUAL_CORES_ACTION="$MANUAL_CORES_ACTION_FLIP"
+    if [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$MANUAL_CORES_ACTION" = "ON" ]; then
+       SCREENOFF_DISABLE_CORES="OFF"
+    fi
+    ;;
 #    6) 
 #    ;;
 #    7)
@@ -830,37 +922,52 @@ flip_state "SCREENOFF_LOW_FREQ" "SCREENOFF_DISABLE_CORES"
 
 # logging menu
 
-if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ] || [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
    log "Logging settings started due to user enabled screenoff experiment"
    
       ui_print " "
-      ui_print "___________________________________________________"
+      div
       ui_print " "
       center_print "CHOOSE YOUR LOGGING DETAILS"
-      ui_print "___________________________________________________"
+      div
       ui_print " "
-      ui_print " You activated some of experimental settings "
-      ui_print " please choose how detailed to log it, cause logs "
-      ui_print " puts additional pressure on your system, combating"
-      ui_print " power efficiency that you gain "
+      cut_print " You activated some of experimental settings please choose how detailed to log it, cause logs puts additional pressure on your system, combating power efficiency that you gain "
+      
+      note_print "Log options: \"Cycle alive\" log would print into log \"Cycle alive\" every time cycle repeats (e.g. 8-9 seconds), \"Check result\" log would print result of check (screen ON or OFF?) every time, \"Executing action\" log would print to log only when screen state was changed (\"ON→OFF\", or \"ON←OFF\"), and only one recommended due to light impact on performance, \"Result of action\" log would check if action was successfull, thus making it most \"Heavy\" option of all"
+      
+      EXIT_LOG="0"
+      LOG_ALIVE="OFF"
+      LOG_CHECK="OFF"
+      LOG_ACTION="OFF"
+      LOG_RESULT="OFF"
+      
+    while true; do
       remind_controls
       ui_print " "
-      center_print "Choose which log depth to activate:"
-      ui_print "  1. No any logs at all "
-      ui_print "     Do not put any additional code in "
-      ui_print "  2. Slight logs (record when state changes) "
-      ui_print "     If you wanna know are it working or no"
-      ui_print "  3. Full logging (record every ~10 seconds!) "
-      ui_print "     If you want to check everything "
-      ui_print "     Or you beta tester, etc... "
-      ui_print " "
+      center_print "Choose which log option to activate:"
+      list_print \
+      "Exit (finalize setings) " \
+      "\"Cycle alive\" log:       $LOG_ALIVE " \
+      "\"Check result\" log:      $LOG_CHECK " \
+      "\"Executing action\" log:  $LOG_ACTION " \
+      "\"Result of action\" log:  $LOG_RESULT "
+      
+      note_print "\"Cycle alive\", \"Check result\" and especially \"Result of action\" log option HIGHLY unrecommended to use on daily basis, use them only when trying catch bugs or for detailed testing!"
+      
+      flip_state "LOG_ALIVE" "LOG_CHECK" "LOG_ACTION" "LOG_RESULT"
 
-   show_menu "LOGGING: NONE" "LOGGING: GENERAL" "LOGGING: FULL"
+   show_menu "Exit log settings" "\"Cycle alive\" log [TURN ${LOG_ALIVE_FLIP}]" "\"Check result\" log [TURN ${LOG_CHECK_FLIP}]" "\"Executing action\" log [TURN ${LOG_ACTION_FLIP}]" "\"Result of action\" log [TURN ${LOG_RESULT_FLIP}]"
     case $? in
-    1) LOGGING="NONE" ;;
-    2) LOGGING="SOME" ;;
-    3) LOGGING="FULL" ;;
+    1) EXIT_LOG="1" ;;
+    2) LOG_ALIVE="$LOG_ALIVE_FLIP" ;;
+    3) LOG_CHECK="$LOG_CHECK_FLIP" ;;
+    4) LOG_ACTION="$LOG_ACTION_FLIP" ;;
+    5) LOG_RESULT="$LOG_RESULT_FLIP" ;;
     esac
+    if [ "$EXIT_LOG" = "1" ]; then
+       break
+    fi
+  done
 else
    log "Logging menu skipped due to user skipped experimental"
 fi
@@ -869,13 +976,16 @@ fi
 
 if [ $pCOREf = 0 ] && [ $bCOREf = 0 ]; then
       SCREENOFF_DISABLE_CORES="OFF"
+      MANUAL_CORES_ACTION"="ON"
 fi
 
-if [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+if [ "$SCREENOFF_DISABLE_CORES" = "ON" ] || [ "$MANUAL_CORES_ACTION" = "ON" ]; then
    log "Starting recalculating disabled cores due to:" "SCREENOFF_DISABLE_CORES = \"$SCREENOFF_DISABLE_CORES\" "
    if [ $pCOREf = 0 ]; then
       CPU_pCOREe=" "
       CPU_pCOREd=" "
+      SCREENOFF_CORES_FREQe=" "
+      SCREENOFF_CORES_FREQd=" "
    elif [ $pCOREf = 1 ]; then
       CPU_pCOREe="
 sleep 1
@@ -885,37 +995,58 @@ echo 1 > /sys/devices/system/cpu/cpu7/online
 sleep 1
 echo 0 > /sys/devices/system/cpu/cpu7/online
 "
+      MANUAL_STATE='$(cat /sys/devices/system/cpu/cpu7/online)'
+      SCREENOFF_CORES_FREQe="
+echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+"
+      SCREENOFF_CORES_FREQd="
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+"
    fi
 
    if [ $bCOREf = 0 ]; then
       CPU_bCOREe=" "
       CPU_bCOREd=" "
-   elif [ $bCOREf = 1 ]; then
-      CPU_bCOREe="
+      SCREENOFF_CORES_FREQe="$SCREENOFF_CORES_FREQe "
+      SCREENOFF_CORES_FREQd="$SCREENOFF_CORES_FREQd "
+   else
+      if [ $bCOREf = 1 ]; then
+         CPU_bCOREe="
 echo 1 > /sys/devices/system/cpu/cpu6/online
 "
-      CPU_bCOREd="
+         CPU_bCOREd="
 echo 0 > /sys/devices/system/cpu/cpu6/online
 "
     elif [ $bCOREf = 2 ]; then
-       CPU_bCOREe="
+          CPU_bCOREe="
 echo 1 > /sys/devices/system/cpu/cpu5/online
 echo 1 > /sys/devices/system/cpu/cpu6/online
 "
-       CPU_bCOREd="
+          CPU_bCOREd="
 echo 0 > /sys/devices/system/cpu/cpu5/online
 echo 0 > /sys/devices/system/cpu/cpu6/online
 "
-    elif [ $bCOREf = 3 ]; then
-       CPU_bCOREe="
+       elif [ $bCOREf = 3 ]; then
+          CPU_bCOREe="
 echo 1 > /sys/devices/system/cpu/cpu4/online
 echo 1 > /sys/devices/system/cpu/cpu5/online
 echo 1 > /sys/devices/system/cpu/cpu6/online
 "
-       CPU_bCOREd="
+          CPU_bCOREd="
 echo 0 > /sys/devices/system/cpu/cpu4/online
 echo 0 > /sys/devices/system/cpu/cpu5/online
 echo 0 > /sys/devices/system/cpu/cpu6/online
+"
+      fi
+
+      MANUAL_STATE='$(cat /sys/devices/system/cpu/cpu6/online)'
+      SCREENOFF_CORES_FREQe="$SCREENOFF_CORES_FREQe 
+echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+"
+      SCREENOFF_CORES_FREQd="$SCREENOFF_CORES_FREQd 
+echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
 "
    fi
 
@@ -924,8 +1055,8 @@ echo 0 > /sys/devices/system/cpu/cpu6/online
    
 fi
 
-if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
-   if [ "$LOGGING" = "SOME" ] || [ "$LOGGING" = "FULL" ]; then
+if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ] || [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
+   if [ "$LOG_ALIVE" = "ON" ] || [ "$LOG_CHECK" = "ON" ] || [ "$LOG_ACTION" = "ON" ] || [ "$LOG_RESULT" = "ON" ]; then
    writeinfo '
 LOGFILE="/sdcard/Quantom_Screenoff.log"
 
@@ -936,62 +1067,88 @@ log() {
 }
 ' 
    fi
+
    #first part
    writeinfo "SCREEN=\"1\"
 while true; do
-STATE=\$(dumpsys power | grep -i 'mHoldingDisplaySuspendBlocker' | awk -F= '{print \$2}' | tr -d '\r')"
-    if [ "$LOGGING" = "FULL" ]; then
-      writeinfo  '      log "Cycle alive: Current state: $STATE" '
-    fi
-    writeinfo 'if [ "$STATE" = "true" ]; then 
+STATE=\$(dumpsys power | grep -i 'mHoldingDisplaySuspendBlocker' | cut -d= -f2)"
+   if [ "$LOG_ALIVE" = "ON" ]; then
+      writeinfo  '      log "Cycle alive: Current state: $STATE" ' # REDO LATER
+   fi
+   writeinfo 'if [ "$STATE" = "true" ]; then 
    if [ "$SCREEN" = "1" ]; then
       sleep 2'
-   if [ "$LOGGING" = "FULL" ]; then
-      writeinfo '      log "Skipped action: screen was ON and still ON" '
+   if [ "$LOG_CHECK" = "ON" ]; then
+      writeinfo '      log "Action: [SKIP] screen ON  -  ON " '
    fi
-writeinfo '   else
+   writeinfo '   else
       SCREEN="1"'
-   if [ "$LOGGING" = "SOME" ] ||[ "$LOGGING" = "FULL" ]; then
-      writeinfo '      log "Reverting action: screen was OFF and turned ON" '
+   if [ "$LOG_CHECK" = "ON" ] || [ "$LOG_ACTION" = "ON" ]; then
+      writeinfo '      log "Action: [BACK] screen OFF →  ON " '
    fi
    if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
-      writeinfo "echo $LITTLEf >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+      writeinfo "
 echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
 echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
 sleep 2
 $CPU_COREe"
 
    elif [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "OFF" ]; then
-      writeinfo "echo $LITTLEf >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
+      writeinfo "
 echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
 echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
 sleep 2"
 
    elif [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "OFF" ]; then
-      writeinfo "echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
-echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+      writeinfo "
+$SCREENOFF_CORES_FREQe
 sleep 2
 $CPU_COREe" 
 
    fi
+   if [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
+      writeinfo "$CPU_AlG" 
+   fi
+
+   if [ "$LOG_RESULT" = "ON" ]; then
+      if [ "$SCREENOFF_LOW_FREQ" = "ON" ]; then
+         writeinfo '      log "Result: [FREQ] now:
+> for LITTLE → $(cat "/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq") ;
+> for BIG    → $(cat "/sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq") ;
+> for PRIME  → $(cat "/sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq") ;" '
+      fi
+      if [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+         writeinfo '      log "Result: [CORE] now:
+> PRIME → $(cat "/sys/devices/system/cpu/cpu7/online") ;
+> BIG 1 → $(cat "/sys/devices/system/cpu/cpu6/online") ;
+> BIG 2 → $(cat "/sys/devices/system/cpu/cpu5/online") ;
+> BIG 3 → $(cat "/sys/devices/system/cpu/cpu4/online") ;" '
+      fi
+      if [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
+         writeinfo '      log "Result: [GOV] now:
+> for LITTLE → $(cat "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor") ;
+> for BIG    → $(cat "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor") ;
+> for PRIME  → $(cat "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor") ;" '
+      fi
+   fi
+
 writeinfo '   fi
 elif [ "$STATE" = "false" ]; then 
    if [ "$SCREEN" = "0" ]; then'
 
-   if [ "$LOGGING" = "FULL" ]; then
-      writeinfo '      log "Skipped action: screen was OFF and still OFF" '
+   if [ "$LOG_CHECK" = "ON" ]; then
+      writeinfo '      log "Action: [SKIP] screen OFF - OFF " '
    fi
    # second part, when screen is off
    writeinfo '      sleep 2
    else
       SCREEN="0"'
 
-   if [ "$LOGGING" = "SOME" ] ||[ "$LOGGING" = "FULL" ]; then
-      writeinfo '      log "Executing action: screen was ON and turned OFF" '
+   if [ "$LOG_CHECK" = "ON" ] || [ "$LOG_ACTION" = "ON" ]; then
+      writeinfo '      log "Action [EXEC] screen ON  → OFF " '
    fi
    if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
-      writeinfo "echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+      writeinfo "
 echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
 echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
 echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
@@ -1000,8 +1157,7 @@ sleep 2
 $CPU_COREd"
 
    elif [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "OFF" ]; then
-      writeinfo "echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq
-echo $LITTLEmin >> /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+      writeinfo "
 echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
 echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
 echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
@@ -1009,14 +1165,41 @@ echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
 sleep 2"
 
    elif [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "OFF" ]; then
-      writeinfo "echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+      writeinfo "
+$SCREENOFF_CORES_FREQd
 sleep 2
 $CPU_COREd"
 
    fi
+   if [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
+      writeinfo "
+echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+echo powersave > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
+echo powersave > /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor" 
+   fi
+
+      if [ "$LOG_RESULT" = "ON" ]; then
+      if [ "$SCREENOFF_LOW_FREQ" = "ON" ]; then
+         writeinfo '      log "Result: [FREQ] now:
+> for LITTLE → $(cat "/sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq") ;
+> for BIG    → $(cat "/sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq") ;
+> for PRIME  → $(cat "/sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq") ;" '
+      fi
+      if [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
+         writeinfo '      log "Result: [CORE] now:
+> PRIME → $(cat "/sys/devices/system/cpu/cpu7/online") ;
+> BIG 1 → $(cat "/sys/devices/system/cpu/cpu6/online") ;
+> BIG 2 → $(cat "/sys/devices/system/cpu/cpu5/online") ;
+> BIG 3 → $(cat "/sys/devices/system/cpu/cpu4/online") ;" '
+      fi
+      if [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
+         writeinfo '      log "Result: [GOV] now:
+> for LITTLE → $(cat "/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor") ;
+> for BIG    → $(cat "/sys/devices/system/cpu/cpu4/cpufreq/scaling_governor") ;
+> for PRIME  → $(cat "/sys/devices/system/cpu/cpu7/cpufreq/scaling_governor") ;" '
+      fi
+   fi
+
 writeinfo '   fi
 fi
    sleep 8
@@ -1029,6 +1212,24 @@ log "Writeinfo finished. Insetring it to SERVICE"
 echo "$EXP_SERVICE" >> "$MODPATH/service.sh"
 
 log "Experimental settings finalized. Service: " "\"$(cat $MODPATH/service.sh)\""
+
+
+if [ "$MANUAL_CORES_ACTION" = "ON" ]; then
+   log "Started exporting action.sh due to user settings"
+   touch "$MODPATH/action.sh"
+   MANUAL_SCRIPT"
+CORES_STATE=$MANUAL_STATE
+if [ \"\$CORES_STATE\" = \"1\" ]; then 
+$SCREENOFF_CORES_FREQd
+$CPU_COREd
+elif [ \"\$CORES_STATE\" = \"0\" ]; then 
+$SCREENOFF_CORES_FREQe
+$CPU_COREe
+fi"
+   echo "$MANUAL_SCRIPT" > "$MODPATH/action.sh"
+
+fi
+
 
 else
    log "Experimental settings skipped due to compatible: $COMPATIBLE"
