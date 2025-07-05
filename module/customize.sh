@@ -41,6 +41,11 @@ $LOGLINE" >> "$LOGFILE"
   fi
 
   if [ "$ABORT" = "1" ]; then
+    set > "$NOW_ENV"
+    echo "--- ENV DUMP START ---" >> "$LOGFILE"
+    grep -Fvxf "$START_ENV" "$NOW_ENV" >> "$LOGFILE"
+    echo "--- ENV DUMP END ---" >> "$LOGFILE"
+
     sleep 2
     abort "$MSG"
   fi
@@ -68,32 +73,32 @@ flip_state() {
   done
 }
 
-BUFFER_NUM=0
-
 writeinfo() {
   if [ "$1" = "-s" ]; then
     shift
     local VAR_NAME="$1"
-    log "Writeinfo export called to variable: \$$1" "Starting building export variable"
+    log "Writeinfo export called to variable: \$$1" "Starting building export variable. Namespace: \"$2\""
     local i=1
     local CONTENT=""
-    while [ "$i" -le "$BUFFER_NUM" ]; do
+    eval "NAMESAPCE_COUNT=\"\$BUFFER_NUM_${2}\""
+    while [ "$i" -le "$NAMESAPCE_COUNT" ]; do
       log "Reading saved content of line № $i"
-      eval "LINE=\${SAVED_LINE_$i}"
-      CONTENT="${CONTENT}${LINE}"$'\n'
-      unset "SAVED_LINE_$i"
+      eval "LINE=\${SAVED_LINE_${i}_${2}}"
+      CONTENT="${CONTENT}
+${LINE}"
+      unset "SAVED_LINE_${i}_${2}"
       log "Line № $i sucsessfully unsetted"
       i=$((i + 1))
     done
     eval "$VAR_NAME=\"\$CONTENT\""
-    BUFFER_NUM=0
+    eval "BUFFER_NUM_${2}=0"
     log "Writeinfo export finished" "Final CONTENT = \" $CONTENT\" "
     return
   else
-    BUFFER_NUM=$((BUFFER_NUM + 1))
-    log "Writeinfo add new line triggered" "№$BUFFER_NUM, Adding:
+    eval "BUFFER_NUM_${2}=$((BUFFER_NUM_${2} + 1))" && eval "NUM=\"\$BUFFER_NUM_${2}\""
+    log "Writeinfo add new line triggered. Namespace: \"$2\"" "№$NUM, Adding:
     $1"
-    eval "SAVED_LINE_$BUFFER_NUM=\"\$1\""
+    eval "SAVED_LINE_${NUM}_${2}=\"\$1\""
   fi
 }
 
@@ -135,6 +140,41 @@ show_menu() {
     log -u " You chose ➔ $current" "Menu result s: $selected, c: $current"
     ui_print " "
     return $selected
+}
+
+smart_menu() {
+   log "Smart menu called. Begin first stage"
+  local i=1
+  local ARG_STRING=""
+  
+  while [ "$i" -le "$#" ]; do
+    eval "local ARG=\${$i}"
+    log "First stage for arg №$i" "Arg: $ARG"
+    echo "$ARG" | grep -q "UNAVAILABLE" || ARG_STRING="$ARG_STRING \"$ARG\""
+    i=$(( i + 1 ))
+  done
+
+   log "First stage done with result:" "$ARG_STRING"
+
+  eval "show_menu $ARG_STRING"
+  local RES=$?
+  
+  log "Starting second stage with RES: $RES"
+  
+  local j=1
+  local SKIPPED=0
+  while [ "$j" -le "$RES" ]; do
+    eval "local ARG=\${$j}"
+    log "Second stage for arg №$j" "Arg: $ARG"
+    echo "$ARG" | grep -q "UNAVAILABLE" && SKIPPED=$(( SKIPPED + 1 ))
+    j=$(( j + 1 ))
+  done
+
+   log "Check for UNAVALIBLE art finished. Result:" "$SKIPPED was skipped"
+
+  RES=$(( RES + SKIPPED ))
+  log "Smart menu finished with final result: $RES"
+  return $RES
 }
 
 compatible_freq() {
@@ -196,7 +236,6 @@ source "${MODPATH/_update/}/settings.txt"
 if [ "$1" = 0 ]; then
  ui_print " "
  ui_print " Restoring your previous freq settings...    "
- div
 
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc
  FREQ_EXPORT="1"
@@ -207,7 +246,6 @@ if [ "$1" = 0 ]; then
 elif [ "$1" = "1" ]; then
  ui_print " "
  ui_print " Restoring your previous NOT freq settings...    "
- div
 
  export uALGf dALGf ALGc pCOREf bCOREf COREc
  OTHER_EXPORT="1"
@@ -218,7 +256,6 @@ elif [ "$1" = "1" ]; then
 elif [ "$1" = "2" ]; then
  ui_print " "
  ui_print " Restoring all your previous settings... "
- div
 
 
  export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc uALGf dALGf ALGc pCOREf bCOREf COREc
@@ -274,25 +311,73 @@ fi
 
 # UI system rework functions stacked below:
 
+SIZE="$(settings get system display_density_index_manual)"
+log "SIZE had been get trough settings. Value: $SIZE"
+if [ -z "$SIZE" ] || [ "$SIZE" = "null" ]; then
+
+PHY="$(wm density | grep 'Physical' | cut -d:  -f2)"
+OVR="$(wm density | grep 'Override' | cut -d:  -f2)"
+
+log "SIZE had been wrong. Got PHY: $PHY , and OVR: $OVR"
+if [ -z "${OVR/ /}" ]; then
+log "Screen width defined as MID since OVR isn't available"
+WIDTH="MID"
+elif [ "${PHY/ /}" -gt "${OVR/ /}" ]; then
+log "Screen width defined as WIDE since OVR are less than PHY"
+WIDTH="WIDE"
+elif [ "${PHY/ /}" -gt "${OVR/ /}" ]; then
+WIDTH="NARROW"
+log "Screen width defined as NARROW since OVR are greater than PHY"
+else
+log "Screen width had been unavailable to get. Defining as MID"
+WIDTH="MID"
+fi
+
+elif [ "$SIZE" -le "1" ]; then
+log "Screen width defined as WIDE since SIZE is 0 or 1"
+WIDTH="WIDE"
+elif [ "$SIZE" = "2" ]; then
+log "Screen width defined as MID since SIZE = 2"
+WIDTH="MID"
+elif [ "$SIZE" -gt "3" ]; then
+WIDTH="NARROW"
+log "Screen width defined as NARROW since SIZE is 3 or 4"
+else
+log "Fallback: all methods to define screen width failed. Defining as MID"
+WIDTH="MID"
+fi
+
+if [ "$WIDTH" = "NARROW" ]; then
+WIDTH=39
+elif [ "$WIDTH" = "MID" ]; then
+WIDTH=44
+elif [ "$WIDTH" = "WIDE" ]; then
+WIDTH=53
+else
+log
+fi
+
+if [ "$WIDTH" = "NARROW" ] || [ "$WIDTH" = "MID" ]; then
 remind_controls() {
 div
 ui_print " "
-center_print "[VOL+] - Change selection | [VOL-] - Confirm"
+center_print "[VOL+] - Change selection"
+center_print "[VOL-] - Confirm choice  "
 div
 }
-
-WIDTH=53
-
-optimize_div() {
-  local LENGTH=$1
-  DIV=""
-  while [ $LENGTH -gt 0 ]; do
-    DIV="_$DIV"
-    LENGTH=$((LENGTH - 1))
-  done
+else
+remind_controls() {
+div
+ui_print " "
+center_print "[VOL+] - Change selection | [VOL-] - Confirm choice"
+div
 }
+fi
 
-optimize_div $WIDTH
+DIV=""
+while [ "${#DIV}" -lt "$WIDTH" ]; do
+    DIV="_$DIV"
+done
 
 div() {
   ui_print "$DIV"
@@ -312,7 +397,7 @@ list_print() {
 
   for TEXT in "$@"; do
     local PREFIX=" $LIST_COUNTER. "
-  if [ ${#TEXT} -lt $LEN ]; then
+  if [ ${#TEXT} -le $LEN ]; then
      ui_print "${PREFIX}${TEXT}"
   else
     local REMAINING="$TEXT"
@@ -320,10 +405,12 @@ list_print() {
       ui_print "${PREFIX}${PART% *}"
       REMAINING="${TEXT/${PART% *} }"
       PREFIX="    "
-
-    wordcut
-
-    ui_print "${PREFIX}${REMAINING}"
+      
+      if ! [ -z "$REMAINING" ]; then
+         wordcut
+         ui_print "${PREFIX}${REMAINING}"
+    fi
+    
   fi 
     LIST_COUNTER=$((LIST_COUNTER + 1))
   done
@@ -332,7 +419,7 @@ list_print() {
 note_print() {
   local LEN=$((WIDTH - 7))
   local PREFIX=" Note: "
-  if [ ${#1} -lt $LEN ]; then
+  if [ ${#1} -le $LEN ]; then
      ui_print "${PREFIX}${1}"
   else
     local PART=$(echo "$1" | cut -c1-$LEN)
@@ -340,23 +427,25 @@ note_print() {
       REMAINING="${1/${PART% *} }"
       PREFIX="       "
 
-    wordcut
-
-    ui_print "${PREFIX}${REMAINING}"
+if ! [ -z "$REMAINING" ]; then
+         wordcut
+         ui_print "${PREFIX}${REMAINING}"
+    fi
+    
   fi 
 }
 
 cut_print(){
-  local LEN=WIDTH
+  local LEN=$((WIDTH - 1))
   local PREFIX=" "
   local PART=$(echo "$1" | cut -c1-$LEN)
   ui_print "${PREFIX}${PART% *}"
   REMAINING="${1/${PART% *} }"
 
-    wordcut
-
-    ui_print "${PREFIX}${REMAINING}"
-  fi   
+if ! [ -z "$REMAINING" ]; then
+     wordcut
+     ui_print "${PREFIX}${REMAINING}"
+fi
 }
 
 center_print() {
@@ -372,6 +461,11 @@ center_print() {
   ui_print "${SPACE}${1}"
 }
 
+# For dumping if error
+
+START_ENV="$TMPDIR/env.txt"
+NOW_ENV="$TMPDIR/now.txt"
+set > "$START_ENV"
 
 # For future development to universal and forks
 
@@ -413,14 +507,72 @@ elif [ "$COMPATIBLE" = "1" ]; then
 
       div
       ui_print " "
-      ui_print " Realme GT3/neo5 detected!    "
-      ui_print " All settings fully avalible  "
+      center_print " Realme GT3/neo5 detected!    "
+      center_print " All settings fully avalible  "
       div
       ui_print " "
 
 else
  log -a -u " There is unexpected error, send log please, aborting" "Unexpected error while checking compatible: $COMPATIBLE at start, aborting install"
 fi
+
+#Disclaimer
+
+if [ -f "${MODPATH/_update/}/disclaimer.txt" ]; then
+source "${MODPATH/_update/}/disclaimer.txt"
+export EXP_DISCLAIMER
+
+else
+
+center_print "DISCLAIMER FOR EVERYONE USING MODULE"
+div
+ui_print " "
+
+note_print "Please, understand that all that you do using this module you doing at your own responsibility and risk! I'm not responsible for bricked devices (especially if they are incompatible), missed alarms and lags in system. YOU DOING EVERYTHING AT YOUR OWN RISK!!!"
+ui_print " "
+
+if [ "$COMPATIBLE" = "1" ]; then
+
+cut_print "As your device is compatible (GT3/neo5) you can feel more secure about this, since all changes are highly tested on same devices and guaranteed to be more or less safe. Anyway, you still have to confirm that you readed this disclaimer and take your own responsibility for your device, performing modifications to your system using this module. This modifications (especially EXPERIMENTAL) can have unexpected consequences various from not being effective (less screen time for nothing) to damage system that it needs to be wiped to factory (oplus services dyind since modifications). By pressing VOL+ TWICE you confirm that you read this disclaimer and agree with it. Press VOL- to disagree and exit immediately"
+
+elif [ "$COMPATIBLE" = "0" ]; then
+
+cut_print "As your device is incompatible (not GT3/neo5) I'm need to warn you more serious about possible side effects of this module, since all changes are mostly NOT tested on incompatible devices and NOT guaranteed to be safe. You have to confirm that you readed this disclaimer and take your own responsibility for your device, performing modifications to your system using this module. This modifications (especially EXPERIMENTAL) can have unexpected consequences various from not being effective (less screen time for nothing) to damage system that it needs to be wiped to factory (oplus services dyind since modifications). By pressing VOL+ TWICE you confirm that you read this disclaimer and agree with it. Press VOL- to disagree and exit immediately"
+
+else
+
+   log -a -u "There is unexpected error, send log please" "Error in COMPATIBLE: $COMPATIBLE , while proceed to disclaimer"
+
+fi
+
+div
+ui_print " "
+
+center_print "PRESS VOL+ TWICE TO CONFIRM"
+ui_print " "
+
+if [ "$(handle_input)" = "up" ]; then
+   center_print "PRESS VOL+ SECOND TIME TO CONFIRM"
+   log "First Vol+ pressed"
+   if [ "$(handle_input)" = "up" ]; then
+      div
+      ui_print " "
+      center_print "YOU AGREED WITH THIS DISCLAIMER"
+      div
+      log "User agreed with disclaimer, Vol+ pressed"
+   else
+      center_print "YOU DISAGREED WITH DISCLAIMER"
+      log -a "User disagreed with disclaimer, Vol- pressed. Terminating"
+   fi
+else
+   center_print "YOU DISAGREED WITH DISCLAIMER"
+   log -a "User disagreed with disclaimer, Vol- pressed. Terminating"
+fi
+
+touch "$MODPATH/disclaimer.txt"
+fi
+   
+   #end disclaimer
 
 if [ -f "${MODPATH/_update/}/settings.txt" ] && [ "$COMPATIBLE" = "1" ]; then
       ui_print " "
@@ -635,6 +787,8 @@ div
       ui_print " "
       log -u " Generating your chosen configuration..."
       ui_print " Please wait..."
+      div
+      ui_print " "
 
 mkdir -p "$MODPATH"
 touch "$MODPATH/service.sh"
@@ -848,16 +1002,73 @@ echo "$POST" > $MODPATH/post-fs-data.sh
 
 log "All main part is done, script is ready for user and checked"
 
+if [ "$EXP_DISCLAIMER" != "1" ]; then
+center_print "DISCLAIMER FOR EXPERIMENTAL SETTINGS"
+div
+ui_print " "
 
-#experimentals
+cut_print "Please, confirm that you understand that EXPERIMENTAL settings can be highly unstable and lead to unexpected results. Often this features have almost no effect, and sometimes even make your autonomy worse. Please, use them with caution and test your configuration on does this work, using build-in highly detail LOG feature. After you check that all of this works and your battery juice became better, I recommend disable logging completely or leave only ACTION logs. Please confirm that you readed this disclaimer and agree with that"
 
-if [ "$COMPATIBLE" = "1" ]; then
-   log "Proceed to EXPIRIMENTAL settings due to compatible: $COMPATIBLE"
+div
+ui_print " "
+
+center_print "PRESS VOL+ TWICE TO CONFIRM"
+ui_print " "
+
+if [ "$(handle_input)" = "up" ]; then
+   center_print "PRESS VOL+ SECOND TIME TO CONFIRM"
+   ui_print " "
+   log "First Vol+ pressed"
+   if [ "$(handle_input)" = "up" ]; then
+      div
+      center_print "YOU AGREED WITH THIS DISCLAIMER"
+      div
+      ui_print " "
+      log "User agreed with disclaimer, Vol+ pressed"
+      EXP_DISCLAIMER="1"
+   else
+      center_print "YOU DISAGREED WITH DISCLAIMER"
+      log "User disagreed with EXP disclaimer, Vol- pressed. Terminating"
+      EXP_DISCLAIMER="0"
+   fi
+else
+   center_print "YOU DISAGREED WITH DISCLAIMER"
+   log "User disagreed with EXP disclaimer, Vol- pressed. Terminating"
+   EXP_DISCLAIMER="0"
+fi
+
+fi
+
+log  "Saving EXP_DISCLAIMER to disclaimer.txt"
+echo "EXP_DISCLAIMER=\"$EXP_DISCLAIMER\"" > "$MODPATH/disclaimer.txt"
+
+if [ "$EXP_DISCLAIMER" = "1" ]; then
+   log "Proceed to EXPIRIMENTAL settings due to EXP_DISCLAIMER: $EXP_DISCLAIMER"
 EXIT_EXTRA="0"
 SCREENOFF_LOW_FREQ="OFF"
 SCREENOFF_DISABLE_CORES="OFF"
 SCREENOFF_POWERSAVE="OFF"
 MANUAL_CORES_ACTION="OFF"
+
+#Check if cores disabled
+
+if [ $pCOREf = 0 ] && [ $bCOREf = 0 ]; then
+      SCREENOFF_DISABLE_CORES="UNAVAILABLE"
+      MANUAL_CORES_ACTION="UNAVAILABLE"
+      log "Resetting SCREENOFF_DISABLE_CORES and MANUAL_CORES_ACTION to UNAVAILABLE since no one core is disabled"
+fi
+
+if [ $dALGf = 1 ]; then
+   SCREENOFF_POWERSAVE="UNAVAILABLE"
+   log "Screenoff Powersave setting disabled since user chose permanent powersave"
+elif [ $uALGf = 1 ]; then
+   CPU_ALG="
+echo walt > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+echo walt > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
+echo walt > /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
+"
+   log "CPU algorithm for screenoff set to walt (stock)"
+fi
 
       ui_print " "
       div
@@ -879,12 +1090,14 @@ MANUAL_CORES_ACTION="OFF"
 #      ui_print "  7. Undervolting. WARNING: could cause DAMAGE: "
 #      ui_print "  8. - "
       ui_print " "
-      note_print "List and choose is dynamic and changes until you exit menu "
+      note_print "List and choose is dynamic and changes after you choose something, until you exit menu "
+      note_print "Some options are unavailable if you don't have right configuration for this experiment's, or because your device is incompatible"
       ui_print " "
 
 flip_state "SCREENOFF_LOW_FREQ" "SCREENOFF_DISABLE_CORES" "SCREENOFF_POWERSAVE" "MANUAL_CORES_ACTION"
 
-   show_menu "Exit extra settings" "Cut freq on screenoff [TURN ${SCREENOFF_LOW_FREQ_FLIP}]" "Disable cores on screenoff [TURN ${SCREENOFF_DISABLE_CORES_FLIP}]" "CPU governor to Powersave on screenoff [TURN ${SCREENOFF_POWERSAVE_FLIP}]" "Manually enable and disable cores by Action button [TURN ${MANUAL_CORES_ACTION_FLIP}]"
+   smart_menu "Exit extra settings" "Cut freq on screenoff [TURN ${SCREENOFF_LOW_FREQ_FLIP}]" "Disable cores on screenoff [TURN ${SCREENOFF_DISABLE_CORES_FLIP}]" "CPU governor to Powersave on screenoff [TURN ${SCREENOFF_POWERSAVE_FLIP}]" "Manually enable and disable cores by Action button [TURN ${MANUAL_CORES_ACTION_FLIP}]"
+
     case $? in
     1) EXIT_EXTRA="1"
     ;;
@@ -931,7 +1144,7 @@ if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ] || 
       center_print "CHOOSE YOUR LOGGING DETAILS"
       div
       ui_print " "
-      cut_print " You activated some of experimental settings please choose how detailed to log it, cause logs puts additional pressure on your system, combating power efficiency that you gain "
+      cut_print "You activated some of experimental settings please choose how detailed to log it, cause logs puts additional pressure on your system, combating power efficiency that you gain "
       
       note_print "Log options: \"Cycle alive\" log would print into log \"Cycle alive\" every time cycle repeats (e.g. 8-9 seconds), \"Check result\" log would print result of check (screen ON or OFF?) every time, \"Executing action\" log would print to log only when screen state was changed (\"ON→OFF\", or \"ON←OFF\"), and only one recommended due to light impact on performance, \"Result of action\" log would check if action was successfull, thus making it most \"Heavy\" option of all"
       
@@ -972,12 +1185,38 @@ else
    log "Logging menu skipped due to user skipped experimental"
 fi
 
-# final conf
+#user repeat
 
-if [ $pCOREf = 0 ] && [ $bCOREf = 0 ]; then
-      SCREENOFF_DISABLE_CORES="OFF"
-      MANUAL_CORES_ACTION"="ON"
+   div
+   ui_print " "
+   center_print "Your activated experiments:"
+   div
+   list_print \
+      "Cut freq down on sleep: $SCREENOFF_LOW_FREQ " \
+      "Disable cores on sleep: $SCREENOFF_DISABLE_CORES " \
+      "Set governor to Powersave on sleep: $SCREENOFF_POWERSAVE " \
+      "Manually enable and disable cores:  $MANUAL_CORES_ACTION "
+   div
+   ui_print " "
+if [ "$LOG_ALIVE" = "ON" ] || [ "$LOG_CHECK" = "ON" ] || [ "$LOG_ACTION" = "ON" ] || [ "$LOG_RESULT" = "ON" ]; then
+   center_print "And logging setup:"
+   div
+   list_print \
+      "\"Cycle alive\" log:       $LOG_ALIVE " \
+      "\"Check result\" log:      $LOG_CHECK " \
+      "\"Executing action\" log:  $LOG_ACTION " \
+      "\"Result of action\" log:  $LOG_RESULT "
+   div
+   ui_print " "
+   log -u " Generating your chosen configuration..."
+   ui_print " Please wait..."
+   div
+   ui_print " "
 fi
+
+sleep 1
+   
+# final conf
 
 if [ "$SCREENOFF_DISABLE_CORES" = "ON" ] || [ "$MANUAL_CORES_ACTION" = "ON" ]; then
    log "Starting recalculating disabled cores due to:" "SCREENOFF_DISABLE_CORES = \"$SCREENOFF_DISABLE_CORES\" "
@@ -996,19 +1235,30 @@ sleep 1
 echo 0 > /sys/devices/system/cpu/cpu7/online
 "
       MANUAL_STATE='$(cat /sys/devices/system/cpu/cpu7/online)'
-      SCREENOFF_CORES_FREQe="
-echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
-"
+
       SCREENOFF_CORES_FREQd="
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
 "
+
+      if [ $uALGf = 1 ] || [ $dALGf = 1 ]; then
+            SCREENOFF_CORES_FREQe="
+echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq"
+      else
+           SCREENOFF_CORES_FREQe="
+echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq 
+echo $uALGf > /sys/devices/system/cpu/cpu7/cpufreq/conservative/up_threshold
+echo $dALGf > /sys/devices/system/cpu/cpu7/cpufreq/conservative/down_threshold
+echo 10 > /sys/devices/system/cpu/cpu7/cpufreq/conservative/freq_step
+echo 1 > /sys/devices/system/cpu/cpu7/cpufreq/conservative/ignore_nice_load
+"
+      fi
    fi
 
    if [ $bCOREf = 0 ]; then
       CPU_bCOREe=" "
       CPU_bCOREd=" "
-      SCREENOFF_CORES_FREQe="$SCREENOFF_CORES_FREQe "
+SCREENOFF_CORES_FREQe="$SCREENOFF_CORES_FREQe "
       SCREENOFF_CORES_FREQd="$SCREENOFF_CORES_FREQd "
    else
       if [ $bCOREf = 1 ]; then
@@ -1041,13 +1291,23 @@ echo 0 > /sys/devices/system/cpu/cpu6/online
       fi
 
       MANUAL_STATE='$(cat /sys/devices/system/cpu/cpu6/online)'
-      SCREENOFF_CORES_FREQe="$SCREENOFF_CORES_FREQe 
-echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-"
       SCREENOFF_CORES_FREQd="$SCREENOFF_CORES_FREQd 
-echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
 "
+      if [ $uALGf = 1 ] || [ $dALGf = 1 ]; then
+         SCREENOFF_CORES_FREQe="$SCREENOFF_CORES_FREQe 
+echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+"
+      else
+         SCREENOFF_CORES_FREQe="$SCREENOFF_CORES_FREQe 
+echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $uALGf > /sys/devices/system/cpu/cpu4/cpufreq/conservative/up_threshold
+echo $dALGf > /sys/devices/system/cpu/cpu4/cpufreq/conservative/down_threshold
+echo 10 > /sys/devices/system/cpu/cpu4/cpufreq/conservative/freq_step
+echo 1 > /sys/devices/system/cpu/cpu4/cpufreq/conservative/ignore_nice_load
+"
+      fi
    fi
 
    CPU_COREd="$CPU_bCOREd $CPU_pCOREd"
@@ -1088,15 +1348,15 @@ STATE=\$(dumpsys power | grep -i 'mHoldingDisplaySuspendBlocker' | cut -d= -f2)"
    fi
    if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
       writeinfo "
-echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
 sleep 2
 $CPU_COREe"
 
    elif [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "OFF" ]; then
       writeinfo "
-echo $BIGf >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-echo $PRIMEf >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
 sleep 2"
 
    elif [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "OFF" ]; then
@@ -1107,7 +1367,7 @@ $CPU_COREe"
 
    fi
    if [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
-      writeinfo "$CPU_AlG" 
+      writeinfo "$CPU_ALG" 
    fi
 
    if [ "$LOG_RESULT" = "ON" ]; then
@@ -1145,23 +1405,23 @@ elif [ "$STATE" = "false" ]; then
       SCREEN="0"'
 
    if [ "$LOG_CHECK" = "ON" ] || [ "$LOG_ACTION" = "ON" ]; then
-      writeinfo '      log "Action [EXEC] screen ON  → OFF " '
+      writeinfo '      log "Action: [EXEC] screen ON  → OFF " '
    fi
    if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
       writeinfo "
-echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
+echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
 sleep 2
 $CPU_COREd"
 
    elif [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "OFF" ]; then
       writeinfo "
-echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-echo $BIGmin >> /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
-echo $PRIMEmin >> /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_cur_freq
+echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+echo $PRIMEmin > /sys/devices/system/cpu/cpu7/cpufreq/scaling_cur_freq
 sleep 2"
 
    elif [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "OFF" ]; then
@@ -1217,22 +1477,35 @@ log "Experimental settings finalized. Service: " "\"$(cat $MODPATH/service.sh)\"
 if [ "$MANUAL_CORES_ACTION" = "ON" ]; then
    log "Started exporting action.sh due to user settings"
    touch "$MODPATH/action.sh"
-   MANUAL_SCRIPT"
+   MANUAL_SCRIPT="
 CORES_STATE=$MANUAL_STATE
 if [ \"\$CORES_STATE\" = \"1\" ]; then 
-$SCREENOFF_CORES_FREQd
-$CPU_COREd
+echo 'Core(s) now enable(d). Turning them OFF'
+sleep 1
+$SCREENOFF_CORES_FREQd $CPU_COREd sleep 1
 elif [ \"\$CORES_STATE\" = \"0\" ]; then 
-$SCREENOFF_CORES_FREQe
-$CPU_COREe
-fi"
-   echo "$MANUAL_SCRIPT" > "$MODPATH/action.sh"
+echo 'Core(s) now disable(d). Turning them ON'
+sleep 1
+$CPU_COREe $SCREENOFF_CORES_FREQe sleep 1
+fi
 
+CORES_STATE=$MANUAL_STATE
+if [ \"\$CORES_STATE\" = \"1\" ]; then  
+echo '[RESULT]: Core(s) now enable(d)'
+elif [ \"\$CORES_STATE\" = \"0\" ]; then 
+echo '[RESULT]: Core(s) now disable(d)'
+fi
+
+sleep 2"
+   log "Manual script for cores made, featuring:" "\"$MANUAL_SCRIPT\""
+   echo "$MANUAL_SCRIPT" > "$MODPATH/action.sh"
 fi
 
 
 else
-   log "Experimental settings skipped due to compatible: $COMPATIBLE"
+   log "Experimental settings skipped due to EXP_DISCLAIMER: $EXP_DISCLAIMER"
 fi
 
-log "Install complete. Dumping values for debug" #"$(set | sort)"
+log "Install complete. Dumping values for debug"
+
+set > "$NOW_ENV"; echo "--- ENV DUMP START ---" >> "$LOGFILE"; grep -Fvxf "$START_ENV" "$NOW_ENV" >> "$LOGFILE"; echo "--- ENV DUMP END ---" >> "$LOGFILE"
