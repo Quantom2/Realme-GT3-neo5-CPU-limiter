@@ -177,138 +177,6 @@ smart_menu() {
   return $RES
 }
 
-compatible_freq() {
-log "compatible_freq triggered with arguments" "№1 - $1;  №2 - $2; COMPATIBLE: $COMPATIBLE"
- local FREQ=$(cat /sys/devices/system/cpu/cpu${2}/cpufreq/scaling_available_frequencies)
- local MIN=$(echo "$FREQ" | awk '{print $1}')
- local MAX=$(echo "$FREQ" | awk '{print $NF}')
-
- log "Compatible freq gained for ${1}, featuring:
-Min:$MIN and Max:$MAX"
-
- eval "${1}f=\"$MAX\""
- eval "${1}min=\"$MIN\""
-}
-
-set_default() {
-log "set_default triggered with arguments" "№1 - $1;  №2 - $2; COMPATIBLE: $COMPATIBLE"
- if [ "$1" != "0" ]; then
-  if [ "$COMPATIBLE" = "1" ]; then
-   PRIMEf="2995200"
-   PRIMEc="Stock freq           (3.0Gh)"
-   BIGf="2496000"
-   BIGc="Stock freq           (2.5Gh)"
-   LITTLEf="1804800"
-   LITTLEc="Stock freq           (1.8Gh)"
-   log "Default (GT3/neo5) freq set successfully"
-   FREQ_EXPORT="0"
-  else
-   compatible_freq PRIME 7
-   PRIMEc="[NONE] (Compatibility mode)"
-   compatible_freq BIG 4
-   BIGc="[NONE] (Compatibility mode)"
-   compatible_freq LITTLE 0
-   LITTLEc="[NONE] (Compatibility mode)"
-   log "Default (Compatible mode) freq set successfully"
-   FREQ_EXPORT="1"
-  fi
- fi
- 
- if [ "$2" != "0" ]; then
-  uALGf="0"
-  dALGf="0"
-  ALGc="Stock algorithm"
-  pCOREf="0"
-  bCOREf="0"
-  COREc="Not disable"
-  CPU_pCOREd=" "
-  CPU_bCOREd=" "
-  CPU_ALG=" "
-  log "Default NOT freq set successfully"
-  OTHER_EXPORT="0"
- fi
-
-}
-
-restore_settings() {
-log "restore_settings triggered with argument" "№1 - $1;  COMPATIBLE: $COMPATIBLE"
-source "${MODPATH/_update/}/settings.txt"
-if [ "$1" = 0 ]; then
- ui_print " "
- ui_print " Restoring your previous freq settings...    "
-
- export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc
- FREQ_EXPORT="1"
- set_default 0 1
- log "Settings restored (freq)"
- check_restore
-
-elif [ "$1" = "1" ]; then
- ui_print " "
- ui_print " Restoring your previous NOT freq settings...    "
-
- export uALGf dALGf ALGc pCOREf bCOREf COREc
- OTHER_EXPORT="1"
- set_default 1 0
- log "Settings restored (NOT freq)"
- check_restore
-
-elif [ "$1" = "2" ]; then
- ui_print " "
- ui_print " Restoring all your previous settings... "
-
-
- export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc uALGf dALGf ALGc pCOREf bCOREf COREc
- FREQ_EXPORT="1"
- OTHER_EXPORT="1"
- log "Settings restored (all)"
- check_restore
- else
- log -a -u " There is unexpected error, send log please, aborting"  "Failed check in restore_settings, incorrect argument"
-fi
-}
-
-check_restore() {
-log "check_restore triggered; COMPATIBLE: $COMPATIBLE"
- if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ]; then
- FREQfail="1"
- log "Corrupted values detected after restoring in FREQ"
- fi
-
- if [ -z "$uALGf" ] || [ -z "$dALGf" ] || [ -z "$ALGc" ] || [ -z "$pCOREf" ] || [ -z "$bCOREf" ] || [ -z "$COREc" ]; then
- ELSEfail="1"
- log "Corrupted values detected after restoring in ELSE"
- fi
-
-if [ "$FREQfail" = "1" ] && [ "ELSEfail" = "1" ]; then
-  ui_print " "
-  log -u " There is a problem with restoring ALL, aborting it" "Restore settings fail (all), setting default"
-  div
-  set_default 1 1
-  sleep 2
-
-elif [ "$FREQfail" = "1" ]; then
-  ui_print " "
-  log -u " There is a problem with restoring FREQ, aborting it" "Restore settings fail (freq), setting default"
-  div
-  set_default 1 0
-  sleep 2
-
-elif [ "ELSEfail" = "1" ]; then
-  ui_print " "
-  log -u " There is a problem with restoring NOT freq, aborting it" "Restore settings fail (NOT freq), setting default"
-  div
-  set_default 0 1
-  sleep 2
-
-elif [ "$FREQfail" != "1" ] && [ "ELSEfail" != "1" ]; then
-   log "Restoring values successfull"
-else
-   log -a -u " There is unexpected error, send log please, aborting" "Values of FREQ or ELSE fail flags corrupt: $FREQfail || $ELSEfail . Tryed to restore settings from old instance, containing this:
-\"$(cat "${MODPATH/_update/}/settings.txt") \" "
-fi
-}
-
 # UI system rework functions stacked below:
 
 SIZE="$(settings get system display_density_index_manual)"
@@ -459,6 +327,138 @@ center_print() {
   done
 
   ui_print "${SPACE}${1}"
+}
+
+compatible_freq() {
+log "compatible_freq triggered with arguments" "№1 - $1;  №2 - $2; COMPATIBLE: $COMPATIBLE"
+ local FREQ=$(cat /sys/devices/system/cpu/cpu${2}/cpufreq/scaling_available_frequencies)
+ local MIN=$(echo "$FREQ" | awk '{print $1}')
+ local MAX=$(echo "$FREQ" | awk '{print $NF}')
+
+ log "Compatible freq gained for ${1}, featuring:
+Min:$MIN and Max:$MAX"
+
+ eval "${1}f=\"$MAX\""
+ eval "${1}min=\"$MIN\""
+}
+
+set_default() {
+log "set_default triggered with arguments" "№1 - $1;  №2 - $2; COMPATIBLE: $COMPATIBLE"
+ if [ "$1" != "0" ]; then
+  if [ "$COMPATIBLE" = "1" ]; then
+   PRIMEf="2995200"
+   PRIMEc="Stock freq           (3.0Gh)"
+   BIGf="2496000"
+   BIGc="Stock freq           (2.5Gh)"
+   LITTLEf="1804800"
+   LITTLEc="Stock freq           (1.8Gh)"
+   log "Default (GT3/neo5) freq set successfully"
+   FREQ_EXPORT="0"
+  else
+   compatible_freq PRIME 7
+   PRIMEc="[NONE] (Compatibility mode)"
+   compatible_freq BIG 4
+   BIGc="[NONE] (Compatibility mode)"
+   compatible_freq LITTLE 0
+   LITTLEc="[NONE] (Compatibility mode)"
+   log "Default (Compatible mode) freq set successfully"
+   FREQ_EXPORT="1"
+  fi
+ fi
+ 
+ if [ "$2" != "0" ]; then
+  uALGf="0"
+  dALGf="0"
+  ALGc="Stock algorithm"
+  pCOREf="0"
+  bCOREf="0"
+  COREc="Not disable"
+  CPU_pCOREd=" "
+  CPU_bCOREd=" "
+  CPU_ALG=" "
+  log "Default NOT freq set successfully"
+  OTHER_EXPORT="0"
+ fi
+
+}
+
+restore_settings() {
+log "restore_settings triggered with argument" "№1 - $1;  COMPATIBLE: $COMPATIBLE"
+source "${MODPATH/_update/}/settings.txt"
+if [ "$1" = 0 ]; then
+ ui_print " "
+ ui_print " Restoring your previous freq settings...    "
+
+ export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc
+ FREQ_EXPORT="1"
+ set_default 0 1
+ log "Settings restored (freq)"
+ check_restore
+
+elif [ "$1" = "1" ]; then
+ ui_print " "
+ ui_print " Restoring your previous NOT freq settings...    "
+
+ export uALGf dALGf ALGc pCOREf bCOREf COREc
+ OTHER_EXPORT="1"
+ set_default 1 0
+ log "Settings restored (NOT freq)"
+ check_restore
+
+elif [ "$1" = "2" ]; then
+ ui_print " "
+ ui_print " Restoring all your previous settings... "
+
+
+ export PRIMEf PRIMEc BIGf BIGc LITTLEf LITTLEc uALGf dALGf ALGc pCOREf bCOREf COREc
+ FREQ_EXPORT="1"
+ OTHER_EXPORT="1"
+ log "Settings restored (all)"
+ check_restore
+ else
+ log -a -u " There is unexpected error, send log please, aborting"  "Failed check in restore_settings, incorrect argument"
+fi
+}
+
+check_restore() {
+log "check_restore triggered; COMPATIBLE: $COMPATIBLE"
+ if [ -z "$PRIMEf" ] || [ -z "$PRIMEc" ] || [ -z "$BIGf" ] || [ -z "$BIGc" ] || [ -z "$LITTLEf" ] || [ -z "$LITTLEc" ]; then
+ FREQfail="1"
+ log "Corrupted values detected after restoring in FREQ"
+ fi
+
+ if [ -z "$uALGf" ] || [ -z "$dALGf" ] || [ -z "$ALGc" ] || [ -z "$pCOREf" ] || [ -z "$bCOREf" ] || [ -z "$COREc" ]; then
+ ELSEfail="1"
+ log "Corrupted values detected after restoring in ELSE"
+ fi
+
+if [ "$FREQfail" = "1" ] && [ "ELSEfail" = "1" ]; then
+  ui_print " "
+  log -u " There is a problem with restoring ALL, aborting it" "Restore settings fail (all), setting default"
+  div
+  set_default 1 1
+  sleep 2
+
+elif [ "$FREQfail" = "1" ]; then
+  ui_print " "
+  log -u " There is a problem with restoring FREQ, aborting it" "Restore settings fail (freq), setting default"
+  div
+  set_default 1 0
+  sleep 2
+
+elif [ "ELSEfail" = "1" ]; then
+  ui_print " "
+  log -u " There is a problem with restoring NOT freq, aborting it" "Restore settings fail (NOT freq), setting default"
+  div
+  set_default 0 1
+  sleep 2
+
+elif [ "$FREQfail" != "1" ] && [ "ELSEfail" != "1" ]; then
+   log "Restoring values successfull"
+else
+   log -a -u " There is unexpected error, send log please, aborting" "Values of FREQ or ELSE fail flags corrupt: $FREQfail || $ELSEfail . Tryed to restore settings from old instance, containing this:
+\"$(cat "${MODPATH/_update/}/settings.txt") \" "
+fi
 }
 
 # For dumping if error
