@@ -123,7 +123,7 @@ show_menu() {
    log "Menu started for $# arguments"
     while true; do
       eval "local current=\"\$$selected\""
-      ui_print "➔ $current"
+      cut_print "➔ $current"
       ui_print " "
        log "Now s: $selected, c: $current"
       case $(handle_input) in
@@ -137,7 +137,8 @@ show_menu() {
     done
 
     ui_print " "
-    log -u " You chose ➔ $current" "Menu result s: $selected, c: $current"
+    cut_print "Chose: ➔ $current"
+    log  "Menu result s: $selected, c: $current"
     ui_print " "
     return $selected
 }
@@ -217,29 +218,32 @@ fi
 
 if [ "$WIDTH" = "NARROW" ]; then
 WIDTH=39
+remind_controls() {
+div
+ui_print " "
+ui_print "       [VOL+] - Change selection"
+ui_print "       [VOL-] - Confirm choice"
+div
+}
 elif [ "$WIDTH" = "MID" ]; then
 WIDTH=44
+remind_controls() {
+div
+ui_print " "
+ui_print "         [VOL+] - Change selection"
+ui_print "         [VOL-] - Confirm choice"
+div
+}
 elif [ "$WIDTH" = "WIDE" ]; then
 WIDTH=53
-else
-log
-fi
-
-if [ "$WIDTH" = "NARROW" ] || [ "$WIDTH" = "MID" ]; then
 remind_controls() {
 div
 ui_print " "
-center_print "[VOL+] - Change selection"
-center_print "[VOL-] - Confirm choice  "
+ui_print " [VOL+] - Change selection | [VOL-] - Confirm choice"
 div
 }
 else
-remind_controls() {
-div
-ui_print " "
-center_print "[VOL+] - Change selection | [VOL-] - Confirm choice"
-div
-}
+log -a -u " There is unexpected error, send log please, aborting" "Unexpected error while checking screen WIDTH: $WIDTH at start, aborting install"
 fi
 
 DIV=""
@@ -253,66 +257,63 @@ div() {
 
 wordcut() {
    while [ ${#REMAINING} -gt $LEN ]; do
-      local PART=$(echo "$REMAINING" | cut -c1-$LEN)
-      ui_print "${PREFIX}${PART% *}"
-      REMAINING="${REMAINING/${PART% *} }"
+      PART=$(echo "$REMAINING" | cut -c1-$LEN)
+      [ "${PART% }" = "$PART" ] && PART="${PART% *} "
+      ui_print "${PREFIX}${PART% }"
+      REMAINING="${REMAINING/${PART}}"
    done
 }
 
 list_print() {
-  local LIST_COUNTER=1
-  local LEN=$((WIDTH - 4))
+   local LIST_COUNTER=1
+   local LEN=$((WIDTH - 3))
 
-  for TEXT in "$@"; do
-    local PREFIX=" $LIST_COUNTER. "
-  if [ ${#TEXT} -le $LEN ]; then
-     ui_print "${PREFIX}${TEXT}"
-  else
-    local REMAINING="$TEXT"
-    local PART=$(echo "$TEXT" | cut -c1-$LEN)
-      ui_print "${PREFIX}${PART% *}"
-      REMAINING="${TEXT/${PART% *} }"
-      PREFIX="    "
+for TEXT in "$@"; do
+   TEXT="$TEXT "
+   local PREFIX=" $LIST_COUNTER. "
+   local PART=$(echo "${TEXT}" | cut -c1-$LEN)
+   [ "${PART% }" = "$PART" ] && PART="${PART% *} "
+   ui_print "${PREFIX}${PART% }"
+   local REMAINING="${TEXT/${PART}}"
+   PREFIX="    "
       
-      if ! [ -z "$REMAINING" ]; then
-         wordcut
-         ui_print "${PREFIX}${REMAINING}"
+   if ! [ -z "$REMAINING" ]; then
+      wordcut
+      ui_print "${PREFIX}${REMAINING}"
     fi
-    
-  fi 
+
     LIST_COUNTER=$((LIST_COUNTER + 1))
-  done
+done
 }
 
 note_print() {
-  local LEN=$((WIDTH - 7))
-  local PREFIX=" Note: "
-  if [ ${#1} -le $LEN ]; then
-     ui_print "${PREFIX}${1}"
-  else
-    local PART=$(echo "$1" | cut -c1-$LEN)
-      ui_print "${PREFIX}${PART% *}"
-      REMAINING="${1/${PART% *} }"
-      PREFIX="       "
+   local LEN=$((WIDTH - 6))
+   local TEXT="$1 "
+   local PREFIX=" Note: "
+   local PART=$(echo "${TEXT}" | cut -c1-$LEN)
+   [ "${PART% }" = "$PART" ] && PART="${PART% *} "
+   ui_print "${PREFIX}${PART% }"
+   local REMAINING="${TEXT/${PART}}"
+   PREFIX="       "
 
 if ! [ -z "$REMAINING" ]; then
-         wordcut
-         ui_print "${PREFIX}${REMAINING}"
-    fi
-    
-  fi 
+   wordcut
+   ui_print "${PREFIX}${REMAINING}"
+fi
 }
 
 cut_print(){
-  local LEN=$((WIDTH - 1))
-  local PREFIX=" "
-  local PART=$(echo "$1" | cut -c1-$LEN)
-  ui_print "${PREFIX}${PART% *}"
-  REMAINING="${1/${PART% *} }"
+   local LEN=$WIDTH
+   local TEXT="$1 "
+   local PREFIX=" "
+   local PART=$(echo "${TEXT}" | cut -c1-$LEN)
+   [ "${PART% }" = "$PART" ] && PART="${PART% *} "
+   ui_print "${PREFIX}${PART% }"
+   local REMAINING="${TEXT/${PART}}"
 
 if ! [ -z "$REMAINING" ]; then
-     wordcut
-     ui_print "${PREFIX}${REMAINING}"
+   wordcut
+   ui_print "${PREFIX}${REMAINING}"
 fi
 }
 
@@ -463,9 +464,15 @@ fi
 
 # For dumping if error
 
+if ! [ -d "$TMPDIR" ] // [ "$TMPDIR" = "/dev/tmp"]; then
+  TMPDIR="/tmp"
+fi
+
 START_ENV="$TMPDIR/env.txt"
 NOW_ENV="$TMPDIR/now.txt"
+touch "$START_ENV"
 set > "$START_ENV"
+touch "$NOW_ENV"
 
 # For future development to universal and forks
 
@@ -1096,7 +1103,7 @@ fi
 
 flip_state "SCREENOFF_LOW_FREQ" "SCREENOFF_DISABLE_CORES" "SCREENOFF_POWERSAVE" "MANUAL_CORES_ACTION"
 
-   smart_menu "Exit extra settings" "Cut freq on screenoff [TURN ${SCREENOFF_LOW_FREQ_FLIP}]" "Disable cores on screenoff [TURN ${SCREENOFF_DISABLE_CORES_FLIP}]" "CPU governor to Powersave on screenoff [TURN ${SCREENOFF_POWERSAVE_FLIP}]" "Manually enable and disable cores by Action button [TURN ${MANUAL_CORES_ACTION_FLIP}]"
+   smart_menu "Exit extra settings" "Cut freq on screenoff »TURN ${SCREENOFF_LOW_FREQ_FLIP}«" "Disable cores on screenoff »TURN ${SCREENOFF_DISABLE_CORES_FLIP}«" "CPU governor to Powersave on screenoff »TURN ${SCREENOFF_POWERSAVE_FLIP}«" "Manually enable and disable cores by Action button »TURN ${MANUAL_CORES_ACTION_FLIP}«"
 
     case $? in
     1) EXIT_EXTRA="1"
@@ -1169,7 +1176,7 @@ if [ "$SCREENOFF_LOW_FREQ" = "ON" ] || [ "$SCREENOFF_DISABLE_CORES" = "ON" ] || 
       
       flip_state "LOG_ALIVE" "LOG_CHECK" "LOG_ACTION" "LOG_RESULT"
 
-   show_menu "Exit log settings" "\"Cycle alive\" log [TURN ${LOG_ALIVE_FLIP}]" "\"Check result\" log [TURN ${LOG_CHECK_FLIP}]" "\"Executing action\" log [TURN ${LOG_ACTION_FLIP}]" "\"Result of action\" log [TURN ${LOG_RESULT_FLIP}]"
+   show_menu "Exit log settings" "\"Cycle alive\" log »TURN ${LOG_ALIVE_FLIP}«" "\"Check result\" log »TURN ${LOG_CHECK_FLIP}«" "\"Executing action\" log »TURN ${LOG_ACTION_FLIP}«" "\"Result of action\" log »TURN ${LOG_RESULT_FLIP}«"
     case $? in
     1) EXIT_LOG="1" ;;
     2) LOG_ALIVE="$LOG_ALIVE_FLIP" ;;
