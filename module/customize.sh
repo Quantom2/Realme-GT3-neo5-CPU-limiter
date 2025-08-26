@@ -330,6 +330,23 @@ center_print() {
   ui_print "${SPACE}${1}"
 }
 
+show_tip() {
+  # Tips
+case "$(( RANDOM % 9 ))" in
+   0) TIP="Tip: use experimental features carefully, they can make battery worse in your particular scenario!" ;;
+   1) TIP="Tip: try out more configurations to find one that you like the most! Try to find what better for you!" ;;
+   2) TIP="Tip: you can cut down your frequency for BIG and PRIME much more than for LITTLE!" ;;
+   3) TIP="Tip: if you disabling cores, it is better to disable full cluster, not separate ones!" ;;
+   4) TIP="Tip: some settings is better not to mix! Becarefull and exprore description or README!" ;;
+   5) TIP="Tip: if you feel noticeable lag with normal use, try give more room to LITTLE cluster!" ;;
+   6) TIP="Tip: if you feel lag in games, try give more room to PRIME and BIG clusters!" ;;
+   7) TIP="Tip: if you have any problems with Camera, try to give CPU more juice!" ;;
+   8) TIP="Tip: if you have any wierd problem, contact me immidiately: @QuantomPC" ;;
+   esac
+   cut_print "$TIP"
+   div
+}
+
 compatible_freq() {
 log "compatible_freq triggered with arguments" "№1 - $1;  №2 - $2; COMPATIBLE: $COMPATIBLE"
  local FREQ=$(cat /sys/devices/system/cpu/cpu${2}/cpufreq/scaling_available_frequencies)
@@ -465,7 +482,7 @@ fi
 # For dumping if error
 
 if ! [ -d "$TMPDIR" ] // [ "$TMPDIR" = "/dev/tmp"]; then
-  TMPDIR="/tmp"
+  TMPDIR="/data/local/tmp"
 fi
 
 START_ENV="$TMPDIR/env.txt"
@@ -632,6 +649,8 @@ if [ "$FREQ_EXPORT" != "1" ]; then
       center_print "Configure your CPU frequency slowdowdown!"
       remind_controls
       ui_print " "
+      show_tip
+      ui_print " "
       center_print "Choose frequency cut to PRIME cluster"
       list_print \
       "Stock freq           (3.0Gh)" \
@@ -652,6 +671,8 @@ if [ "$FREQ_EXPORT" != "1" ]; then
     esac
 
       remind_controls
+      ui_print " "
+      show_tip
       ui_print " "
       center_print "Choose frequency cut to BIG cluster"
       list_print \
@@ -674,6 +695,8 @@ if [ "$FREQ_EXPORT" != "1" ]; then
 
 
       remind_controls
+      ui_print " "
+      show_tip
       ui_print " "
       center_print "Choose frequency cut to LITTLE cluster"
       list_print \
@@ -707,6 +730,8 @@ log "ELSE setup started due to OTHER flag: $OTHER_EXPORT" "COMPATIBLE = $COMPATI
       center_print "Configure your CPU algorithm!    "
       remind_controls
       ui_print " "
+      show_tip
+      ui_print " "
       center_print "Choose desired CPU algorithm"
       list_print \
       "Stock                " \
@@ -732,6 +757,8 @@ log "ELSE setup started due to OTHER flag: $OTHER_EXPORT" "COMPATIBLE = $COMPATI
       ui_print " "
       center_print "Configure your disabled CPU cores!    "
       remind_controls
+      ui_print " "
+      show_tip
       ui_print " "
       center_print "Choose desired CPU cores to disable"
       list_print \
@@ -772,6 +799,8 @@ sleep 1
 
 ui_print " "
 div
+      ui_print " "
+      show_tip
       ui_print " "
       center_print "Your configured, very own CPU slowdown settings:"
       div
@@ -890,8 +919,8 @@ elif [ $dALGf = 1 ]; then
    CPU_ALG="
 echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 echo powersave > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
-echo powersave > /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
-"
+# echo powersave > /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor
+" #Disabled due to lags
    log "CPU algorithm set up to Powersave"
 elif [ "$uALGf" != 0 ] && [ "$dALGf" != 0 ]; then
    CPU_ALG="
@@ -910,12 +939,6 @@ echo 10 > /sys/devices/system/cpu/cpu4/cpufreq/conservative/freq_step
 echo $uALGf > /sys/devices/system/cpu/cpu7/cpufreq/conservative/up_threshold
 echo $dALGf > /sys/devices/system/cpu/cpu7/cpufreq/conservative/down_threshold
 echo 10 > /sys/devices/system/cpu/cpu7/cpufreq/conservative/freq_step
-
-sleep 5
-
-echo 1 > /sys/devices/system/cpu/cpu0/cpufreq/conservative/ignore_nice_load
-echo 1 > /sys/devices/system/cpu/cpu4/cpufreq/conservative/ignore_nice_load
-echo 1 > /sys/devices/system/cpu/cpu7/cpufreq/conservative/ignore_nice_load
 "
    log "CPU algorithm set up to Conservative featuring:
  > $uALGf threshold up
@@ -945,9 +968,44 @@ fi
 
 log "CPU freq reapply in system made" "CPU_COREf: \"$CPU_COREf\" "
 
+# Add random description to service.sh!
+DESCVAR='
+MODPATH=${0%/*}
+# description is assembled with 3 parts: main text, second text, and a tip
+# Main text
+case "$(( RANDOM % 4 ))" in
+   0) DESC1="Module for lasting your battery longer!" ;;
+   1) DESC1="Extend your battery by limiting CPU!" ;;
+   2) DESC1="Makes your Screen On Time better!" ;;
+   3) DESC1="Highly customizable battery extender!" ;;
+esac
+# second text
+case "$(( RANDOM % 5 ))" in
+   0) DESC2="Better suit for Realme GT3/neo5 but can be used for other phones as well!" ;;
+   1) DESC2="Working the best if you are NOT a heavy gamer!" ;;
+   2) DESC2="Do NOT combine this module with any kind of \"system boosters\"!" ;;
+   3) DESC2="Made with love and passion. 100% free from ChatGPT!" ;;
+   4) DESC2="Becoming better with each update! I always researching for something new for you."
+esac
+# Tips
+case "$(( RANDOM % 9 ))" in
+   0) TIP="Tip: use experimental features carefully, they can make battery worse in your particular scenario!" ;;
+   1) TIP="Tip: try out more configurations to find one that you like the most! Try to find what better for you!" ;;
+   2) TIP="Tip: you can cut down your frequency for BIG and PRIME much more than for LITTLE!" ;;
+   3) TIP="Tip: if you disabling cores, it is better to disable full cluster, not separate ones!" ;;
+   4) TIP="Tip: some settings is better not to mix! Becarefull and exprore description or README!" ;;
+   5) TIP="Tip: if you feel noticeable lag with normal use, try give more room to LITTLE cluster!" ;;
+   6) TIP="Tip: if you feel lag in games, try give more room to PRIME and BIG clusters!" ;;
+   7) TIP="Tip: if you have any problems with Camera, try to give CPU more juice! Espetially for PRIME and BIG." ;;
+   8) TIP="Tip: if you have any wierd problem, contact me immidiately: @QuantomPC" ;;
+esac
+DESC="$DESC1 $DESC2 $TIP"
+sed -i "/description=/s|.*|$DESC|" $MODPATH/module.prop
+'
+
 CPU="
 logcat -v brief | grep -m 1 'android.intent.action.USER_PRESENT'
-
+$DESCVAR
 sleep 90
 $CPU_COREf $CPU_ALG $CPU_COREd"
 
@@ -1008,6 +1066,8 @@ echo "$POST" > $MODPATH/post-fs-data.sh
  fi
 
 log "All main part is done, script is ready for user and checked"
+
+# EXP settings
 
 if [ "$EXP_DISCLAIMER" != "1" ]; then
 center_print "DISCLAIMER FOR EXPERIMENTAL SETTINGS"
@@ -1208,6 +1268,7 @@ fi
 if [ "$LOG_ALIVE" = "ON" ] || [ "$LOG_CHECK" = "ON" ] || [ "$LOG_ACTION" = "ON" ] || [ "$LOG_RESULT" = "ON" ]; then
    center_print "And logging setup:"
    div
+   ui_print " "
    list_print \
       "\"Cycle alive\" log:       $LOG_ALIVE " \
       "\"Check result\" log:      $LOG_CHECK " \
@@ -1257,7 +1318,6 @@ echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
 echo $uALGf > /sys/devices/system/cpu/cpu7/cpufreq/conservative/up_threshold
 echo $dALGf > /sys/devices/system/cpu/cpu7/cpufreq/conservative/down_threshold
 echo 10 > /sys/devices/system/cpu/cpu7/cpufreq/conservative/freq_step
-echo 1 > /sys/devices/system/cpu/cpu7/cpufreq/conservative/ignore_nice_load
 "
       fi
    fi
@@ -1312,7 +1372,6 @@ echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
 echo $uALGf > /sys/devices/system/cpu/cpu4/cpufreq/conservative/up_threshold
 echo $dALGf > /sys/devices/system/cpu/cpu4/cpufreq/conservative/down_threshold
 echo 10 > /sys/devices/system/cpu/cpu4/cpufreq/conservative/freq_step
-echo 1 > /sys/devices/system/cpu/cpu4/cpufreq/conservative/ignore_nice_load
 "
       fi
    fi
@@ -1355,10 +1414,12 @@ STATE=\$(dumpsys power | grep -i 'mHoldingDisplaySuspendBlocker' | cut -d= -f2)"
    fi
    if [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "ON" ]; then
       writeinfo "
-echo $BIGf > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
-echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq
+$CPU_COREe
 sleep 2
-$CPU_COREe"
+echo $BIGmin > /sys/devices/system/cpu/cpu4/cpufreq/scaling_max_freq
+echo $PRIMEf > /sys/devices/system/cpu/cpu7/cpufreq/scaling_max_freq 
+$SCREENOFF_CORES_FREQe
+"
 
    elif [ "$SCREENOFF_LOW_FREQ" = "ON" ] && [ "$SCREENOFF_DISABLE_CORES" = "OFF" ]; then
       writeinfo "
@@ -1368,9 +1429,9 @@ sleep 2"
 
    elif [ "$SCREENOFF_DISABLE_CORES" = "ON" ] && [ "$SCREENOFF_LOW_FREQ" = "OFF" ]; then
       writeinfo "
-$SCREENOFF_CORES_FREQe
+$CPU_COREe
 sleep 2
-$CPU_COREe" 
+$SCREENOFF_CORES_FREQe" 
 
    fi
    if [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
@@ -1440,7 +1501,7 @@ $CPU_COREd"
    fi
    if [ "$SCREENOFF_POWERSAVE" = "ON" ]; then
       writeinfo "
-echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+#echo powersave > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 echo powersave > /sys/devices/system/cpu/cpu4/cpufreq/scaling_governor
 echo powersave > /sys/devices/system/cpu/cpu7/cpufreq/scaling_governor" 
    fi
@@ -1515,4 +1576,4 @@ fi
 
 log "Install complete. Dumping values for debug"
 
-set > "$NOW_ENV"; echo "--- ENV DUMP START ---" >> "$LOGFILE"; grep -Fvxf "$START_ENV" "$NOW_ENV" >> "$LOGFILE"; echo "--- ENV DUMP END ---" >> "$LOGFILE"
+set > "$NOW_ENV"; echo "--- ENV DUMP START ---" >> "$LOGFILE"; grep -Fvxf "$START_ENV" "$NOW_ENV" >> "$LOGFILE"; echo "--- ENV DUMP END ---" >> "$LOGFILE"; rm -rf "$NOW_ENV" "$START_ENV"
