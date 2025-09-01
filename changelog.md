@@ -4,6 +4,9 @@
   - All text was fully reworked for new menu system
   - Now unsupported settings will be shown as UNAVALIBLE from start, than disabled after
 - Huge improvements in menu: now all UNAVALIBLE options won't be shown
+- Added a DISCLAIMER screen to warn people about possible side effects and liability
+  - There are two separate disclaimers, on main part and on experimental part of module. Disclaimer will remember that you agreed with is and will not shown up again during reinstall/updat
+  - Using new DISCLAIMER now you can acces EXPERIMENTAL settings even on incompatible devices, and also can easily skip experimental by simply refusing to disclaimer
 - Updated Screenoff service: now less drag and should be snappier
 - Added new experimental settings:
   - Set governor to Powersave on sleep
